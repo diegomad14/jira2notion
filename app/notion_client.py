@@ -115,10 +115,11 @@ async def build_properties(
         existing_props = await get_database_properties()
 
     # Parse creation date once for reuse
-    if "T" in issue.created:
-        created_date = datetime.strptime(issue.created, "%Y-%m-%dT%H:%M:%S.%f%z")
+    created_str = issue.get("created", "")
+    if "T" in created_str:
+        created_date = datetime.strptime(created_str, "%Y-%m-%dT%H:%M:%S.%f%z")
     else:
-        created_date = datetime.strptime(issue.created, "%Y-%m-%d")
+        created_date = datetime.strptime(created_str, "%Y-%m-%d")
     colombia_tz = timezone(timedelta(hours=-5))
     created_date = created_date.replace(tzinfo=colombia_tz)
     created_date_iso = created_date.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -130,7 +131,12 @@ async def build_properties(
                 f"Skipping unknown Notion property '{notion_prop}' while building properties"
             )
             continue
-        value = getattr(issue, jira_field, None)
+        value = issue.get(jira_field)
+        if value is None:
+            if jira_field == "customfield_12286":
+                value = issue.get("description_rest")
+            elif jira_field == "description":
+                value = issue.get("description_adv")
         if jira_field == "summary":
             properties[notion_prop] = {
                 "title": [{"type": "text", "text": {"content": value or ""}}]
@@ -185,10 +191,10 @@ async def find_notion_page_by_ticket(ticket_key: str) -> dict:
 async def create_notion_page(issue: JiraIssue):
     """Create a new page in Notion using the issue information."""
     try:
-        logger.info(f"Creating Notion page for issue: {issue.key}")
-        key_content = issue.key if issue.key else ""
-        description_rest_content = parse_jira_description(issue.description_rest) if issue.description_rest else ""
-        description_adv_content = parse_jira_description(issue.description_adv) if issue.description_adv else ""
+        logger.info(f"Creating Notion page for issue: {issue.get('key')}")
+        key_content = issue.get("key") or ""
+        description_rest_content = parse_jira_description(issue.get("description_rest")) if issue.get("description_rest") else ""
+        description_adv_content = parse_jira_description(issue.get("description_adv")) if issue.get("description_adv") else ""
         markdown_content = [
             {
                 "object": "block",
@@ -538,17 +544,17 @@ async def create_notion_page(issue: JiraIssue):
         }
 
         response = await notion.pages.create(**payload)
-        logger.info(f"Page successfully created in Notion for issue: {issue.key}")
+        logger.info(f"Page successfully created in Notion for issue: {issue.get('key')}")
         return response
     except Exception as e:
-        logger.error(f"Error creating Notion page for issue {issue.key}: {e}")
+        logger.error(f"Error creating Notion page for issue {issue.get('key')}: {e}")
         raise
 
 
 async def update_notion_page(page_id: str, issue: JiraIssue):
     """Update the existing Notion page with the current issue information."""
     try:
-        issue_key = getattr(issue, "key", "UNKNOWN")
+        issue_key = issue.get("key", "UNKNOWN")
         logger.info(f"Updating Notion page for issue: {issue_key}")
 
         existing_props = await get_database_properties()
@@ -576,7 +582,7 @@ async def update_notion_page(page_id: str, issue: JiraIssue):
         return response
 
     except Exception as e:
-        issue_key = getattr(issue, "key", "UNKNOWN")
+        issue_key = issue.get("key", "UNKNOWN")
         logger.error(f"Error updating Notion page for issue {issue_key}: {e}")
         raise
 
@@ -586,16 +592,16 @@ async def create_or_update_notion_page(issue: JiraIssue):
     If it exists, it is updated; otherwise, a new one is created.
     """
     try:
-        existing_page = await find_notion_page_by_ticket(issue.key)
+        existing_page = await find_notion_page_by_ticket(issue.get("key"))
         if existing_page:
             page_id = existing_page.get("id")
-            logger.info(f"Page already exists for issue {issue.key}, proceeding to update.")
+            logger.info(f"Page already exists for issue {issue.get('key')}, proceeding to update.")
             return await update_notion_page(page_id, issue)
         else:
-            logger.info(f"No existing page found for issue {issue.key}, creating a new one.")
+            logger.info(f"No existing page found for issue {issue.get('key')}, creating a new one.")
             return await create_notion_page(issue)
     except Exception as e:
-        logger.error(f"Error in create_or_update_notion_page for issue {issue.key}: {e}")
+        logger.error(f"Error in create_or_update_notion_page for issue {issue.get('key')}: {e}")
         raise
 
 async def set_notion_verified(page: dict, verified) -> dict:

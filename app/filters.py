@@ -16,8 +16,8 @@ def filter_issues_by_assignee(issues: List[JiraIssue], assignee: str) -> List[Ji
 
     filtered_issues = []
     for issue in issues:
-        email = (issue.emailAddress or "").lower()
-        name = (issue.displayName or "").lower()
+        email = (issue.get("emailAddress") or "").lower()
+        name = (issue.get("displayName") or "").lower()
         if "@" in assignee_lower:
             if email == assignee_lower:
                 filtered_issues.append(issue)
