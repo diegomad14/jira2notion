@@ -34,23 +34,43 @@ async def check_jira_connection() -> bool:
         return False
 
 
+def _compose_jql(project_key: str, base_jql: str, time_filter: str, default_order: str) -> str:
+    """Build final JQL ensuring time filters precede any ORDER BY clause."""
+    parts = [f"project = {project_key}"]
+    order_clause = default_order
+
+    if base_jql:
+        lower = base_jql.lower()
+        if " order by " in lower:
+            query, order = base_jql.rsplit(" order by ", 1)
+            parts.append(query.strip())
+            order_clause = order.strip()
+        else:
+            parts.append(base_jql)
+
+    parts.append(time_filter)
+    return " AND ".join(parts) + f" ORDER BY {order_clause}"
+
+
 async def get_new_issues(project_key: str, base_jql: str) -> list[JiraIssue]:
     """Fetch new tickets for the given project created in the last 3 minutes."""
-    jql_parts = [f"project = {project_key}"]
-    if base_jql:
-        jql_parts.append(base_jql)
-    jql_parts.append('created >= "-3m" ORDER BY created DESC')
-    jql = " AND ".join(jql_parts)
+    jql = _compose_jql(
+        project_key,
+        base_jql,
+        'created >= "-3m"',
+        "created DESC",
+    )
     return await _fetch_issues(jql)
 
 
 async def get_updated_issues(project_key: str, base_jql: str) -> list[JiraIssue]:
     """Fetch tickets for the given project updated in the last 3 minutes."""
-    jql_parts = [f"project = {project_key}"]
-    if base_jql:
-        jql_parts.append(base_jql)
-    jql_parts.append('updated >= "-3m" AND created >= "-5d" ORDER BY updated DESC')
-    jql = " AND ".join(jql_parts)
+    jql = _compose_jql(
+        project_key,
+        base_jql,
+        'updated >= "-3m" AND created >= "-5d"',
+        "updated DESC",
+    )
     return await _fetch_issues(jql)
 
 
