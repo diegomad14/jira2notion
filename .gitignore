@@ -1,0 +1,35 @@
+# Entornos y secretos
+.env
+*.local
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+env/
+venv/
+*.egg-info/ 
+
+# VSCode / Mac
+.vscode/
+.DS_Store
+
+# Docker
+*.pid
+
+# Logs
+app.log
+*.log.*
+
+# artefactos locales
+replacements.txt
+jira2notion.git/
+__pycache__/
+.env
+*.log
+*.sqlite
+*.db
+*.pyc
+.DS_Store
+dist/
+build/

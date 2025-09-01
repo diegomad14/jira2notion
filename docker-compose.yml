@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    # Opcional: si tienes .env local, puedes incluirlo; no es obligatorio
+    env_file:
+      - .env
+    environment:
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+      - JIRA_DOMAIN=${JIRA_DOMAIN}              
+      - JIRA_PROJECT_KEY=${JIRA_PROJECT_KEY}    
+      - NOTION_API_KEY=${NOTION_API_KEY}
+      - NOTION_DATABASE_ID=${NOTION_DATABASE_ID}
+      - JIRA_URL=${JIRA_URL}                    
