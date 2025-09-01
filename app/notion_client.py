@@ -40,7 +40,7 @@ async def get_database_properties(database_id: str) -> set[str]:
             _NOTION_PROPERTIES[database_id] = set()
     return _NOTION_PROPERTIES[database_id]
 
-async def check_notion_connection(database_id: str | None = None) -> bool:
+async def check_notion_connection(database_id: Optional[str] = None) -> bool:
     """
     Verify the connection with the Notion API.
     Returns True if the connection is successful, False otherwise.
