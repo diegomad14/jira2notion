@@ -60,27 +60,30 @@ async def process_new_issues(last_processed_issue_key):
         logger.error(f"Error processing new issues: {e}")
         raise
 
-async def periodic_task(last_processed_issue_key):
-    while True:
-        try:
-            issues = await get_updated_issues()
-            logger.info(f"Fetched {len(issues)} updated issues")
-            filtered_issues = filter_issues_by_assignee(issues, settings.jira_assignee)
-            
-            if filtered_issues:
-                latest_issue = filtered_issues[0]
-                if latest_issue.key != last_processed_issue_key:
-                    logger.info(f"New issue or update detected: {latest_issue.key}")
+async def periodic_task(last_processed_issue_key, manual_run: bool = False):
+    try:
+        issues = await get_updated_issues()
+        logger.info(f"Fetched {len(issues)} updated issues")
+        filtered_issues = filter_issues_by_assignee(issues, settings.jira_assignee)
 
-                    await create_or_update_notion_page(latest_issue)
-                    last_processed_issue_key = latest_issue.key
-                else:
-                    logger.info("No new issues or updates.")
+        if filtered_issues:
+            latest_issue = filtered_issues[0]
+            if latest_issue.key != last_processed_issue_key:
+                logger.info(f"New issue or update detected: {latest_issue.key}")
+
+                await create_or_update_notion_page(latest_issue)
+                last_processed_issue_key = latest_issue.key
             else:
-                logger.info(f"No issues assigned to {settings.jira_assignee}.")
-        except Exception as e:
-            logger.error(f"Error in periodic task: {e}")
+                logger.info("No new issues or updates.")
+        else:
+            logger.info(f"No issues assigned to {settings.jira_assignee}.")
+    except Exception as e:
+        logger.error(f"Error in periodic task: {e}")
+
+    if manual_run:
         await asyncio.sleep(settings.check_interval)
+
+    return last_processed_issue_key
 
 async def sync_all_user_issues():
     try:
