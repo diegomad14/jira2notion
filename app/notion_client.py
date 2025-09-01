@@ -1,4 +1,3 @@
-# notion_client.py
 import os
 import logging
 from notion_client import AsyncClient
@@ -11,7 +10,6 @@ logger = logging.getLogger(__name__)
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
 
-# Usamos el cliente asíncrono de Notion
 notion = AsyncClient(auth=NOTION_API_KEY)
 
 async def check_notion_connection() -> bool:
@@ -20,18 +18,14 @@ async def check_notion_connection() -> bool:
     Retorna True si la conexión es exitosa, False si falla.
     """
     try:
-        # Crear un cliente de Notion
         client = AsyncClient(auth=NOTION_API_KEY)
 
-        # Hacer una solicitud de prueba (por ejemplo, obtener la base de datos)
         response = await client.databases.retrieve(NOTION_DATABASE_ID)
 
-        # Si la respuesta es exitosa, la conexión es válida
         if response:
             return True
         return False
     except Exception as e:
-        # Si ocurre cualquier error, se loguea el error y se retorna False
         logging.error(f"Error en la conexión con Notion: {e}")
         return False
 
@@ -45,7 +39,6 @@ def parse_jira_description(description):
         return ""
     
     try:
-        # Se espera que description sea un dict o una cadena que se pueda evaluar
         description_json = description if isinstance(description, dict) else eval(description)
         content = description_json.get('content', [])
         formatted_text = ""
@@ -100,26 +93,18 @@ async def create_notion_page(issue: JiraIssue):
     """
     try:
         logger.info(f"Creando página en Notion para el issue: {issue.key}")
-        # Extraer el nombre del reportero
         reporter_name = issue.reporter.get("displayName", "Desconocido") if issue.reporter else "Desconocido"
-        # Aseguramos que los campos tengan un valor (o cadena vacía)
         key_content = issue.key if issue.key else ""
         description_rest_content = parse_jira_description(issue.description_rest) if issue.description_rest else ""
         description_adv_content = parse_jira_description(issue.description_adv) if issue.description_adv else ""
-        # Detectar el formato de la fecha
         if "T" in issue.created:
             created_date = datetime.strptime(issue.created, "%Y-%m-%dT%H:%M:%S.%f%z")
         else:
             created_date = datetime.strptime(issue.created, "%Y-%m-%d")
-
-        # Convertir de hora local (Colombia UTC-5) a UTC
         colombia_tz = timezone(timedelta(hours=-5))
-        created_date = created_date.replace(tzinfo=colombia_tz)  # Asignar zona horaria si no tiene
-        created_date_utc = created_date.astimezone(timezone.utc)  # Convertir a UTC
-
-        created_date_iso = created_date_utc.strftime("%Y-%m-%dT%H:%M:%SZ")  # Formato Notion en UTC
-
-        # Contenido adicional en formato Markdown
+        created_date = created_date.replace(tzinfo=colombia_tz)
+        created_date_utc = created_date.astimezone(timezone.utc)
+        created_date_iso = created_date_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         markdown_content = [
             {
                 "object": "block",
@@ -350,7 +335,6 @@ async def create_notion_page(issue: JiraIssue):
                 }
             }
         ]
-        # Dividir descripciones largas en bloques de 2000 caracteres
         rest_chunks = split_text("Descripción Rest:\n" + description_rest_content)
         adv_chunks = split_text("Descripción Revenue:\n" + description_adv_content)
         rest_blocks = [
@@ -394,7 +378,7 @@ async def create_notion_page(issue: JiraIssue):
                     "multi_select": [{"name": "trabajo"}]
                 },
                 "Asignación": {
-                    "people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]  # ID fijo de asignación
+                    "people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]
                 },
                 "Verificado": {
                     "checkbox": False
@@ -424,7 +408,7 @@ async def create_notion_page(issue: JiraIssue):
                 },
                 {
                     "object": "block",
-                    "type": "callout",  # Sección Callout para destacarlo
+                    "type": "callout",
                     "callout": {
                         "rich_text": [
                             {
@@ -436,13 +420,13 @@ async def create_notion_page(issue: JiraIssue):
                                     "bold": True,
                                     "italic": False,
                                     "underline": False,
-                                    "color": "yellow"  # Color amarillo para resaltar
+                                    "color": "yellow"
                                 }
                             }
                         ],
                         "icon": {
                             "type": "emoji",
-                            "emoji": "📝"  # Icono de lápiz para hacerla visualmente atractiva
+                            "emoji": "📝"
                         },
                         "children": [
                             {
@@ -470,7 +454,7 @@ async def create_notion_page(issue: JiraIssue):
                 },
                 *rest_blocks,
                 *adv_blocks,
-                *markdown_content  # Agrega el contenido adicional
+                *markdown_content
             ]
         }
 
@@ -502,7 +486,6 @@ async def update_notion_page(page_id: str, issue: JiraIssue):
                 "Jira Issue Key": {
                     "rich_text": [{"type": "text", "text": {"content": issue_key}}]
                 }
-                # Puedes agregar más propiedades si las necesitas
             }
         }
 
@@ -539,7 +522,6 @@ async def set_notion_verificado(page: dict, verificado) -> dict:
     El valor puede ser booleano o un string convertible (como "True", "Inicial", etc.).
     """
     try:
-        # Forzar conversión a booleano (solo "true" será considerado True)
         if isinstance(verificado, str):
             verificado_bool = verificado.strip().lower() == "true"
         else:

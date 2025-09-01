@@ -1,4 +1,3 @@
-# main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,14 +10,12 @@ from .logger_config import setup_logger
 from .config import settings
 from .state_manager import StateManager
 
-# Configuración inicial de FastAPI
 app = FastAPI(
     title="Jira2Notion Sync API",
     description="API para sincronización de tickets entre Jira y Notion",
     version="1.0.0"
 )
 
-# Configuración CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,11 +24,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Inicialización de componentes
 logger = setup_logger()
 state = StateManager()
 
-scheduler: AsyncIOScheduler = None  # Scheduler global
+scheduler: AsyncIOScheduler = None
 
 
 @app.get("/")
@@ -128,8 +124,6 @@ async def startup_event():
 
     scheduler = AsyncIOScheduler()
 
-    # Se programa la tarea periódica. Se pasa el último issue procesado,
-    # y se configura para que no existan ejecuciones simultáneas (max_instances=1)
     scheduler.add_job(
         periodic_task,
         trigger="interval",

@@ -1,4 +1,3 @@
-# state_manager.py
 from tinydb import TinyDB, Query
 from typing import Optional
 

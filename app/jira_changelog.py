@@ -1,15 +1,11 @@
-# jira_changelog.py
 import requests
 from requests.auth import HTTPBasicAuth
 from datetime import datetime
 import os
 
-# URL base de Jira para acceder a los tickets
 JIRA_URL = os.getenv("JIRA_URL")
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
-
-# Credentials for authenticating with the Jira API
 auth = HTTPBasicAuth(JIRA_EMAIL, JIRA_API_TOKEN)
 
 
