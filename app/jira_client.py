@@ -75,7 +75,7 @@ async def get_updated_issues(project_key: str, base_jql: str) -> list[JiraIssue]
 
 
 async def _fetch_issues(jql: str) -> list[JiraIssue]:
-    url = f"{JIRA_DOMAIN}/rest/api/3/search"
+    url = f"{JIRA_DOMAIN}/rest/api/3/search/jql"
     auth = (JIRA_EMAIL, JIRA_API_TOKEN)
 
     issues_out: list[JiraIssue] = []
@@ -85,16 +85,16 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             while True:
-                params = {
+                payload = {
                     "jql": jql,
-                    "fields": ",".join(FIELDS_NEEDED),
+                    "fields": FIELDS_NEEDED,
                     "startAt": start_at,
                     "maxResults": max_results,
                 }
 
-                resp = await client.get(
+                resp = await client.post(
                     url,
-                    params=params,
+                    json=payload,
                     auth=auth,
                     headers={"Accept": "application/json"},
                 )
