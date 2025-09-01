@@ -65,18 +65,18 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             while True:
-                body = {
+                params = {
                     "jql": jql,
-                    "fields": FIELDS_NEEDED,
+                    "fields": ",".join(FIELDS_NEEDED),
                     "startAt": start_at,
                     "maxResults": max_results,
                 }
 
-                resp = await client.post(
+                resp = await client.get(
                     url,
-                    json=body,
+                    params=params,
                     auth=auth,
-                    headers={"Accept": "application/json", "Content-Type": "application/json"},
+                    headers={"Accept": "application/json"},
                 )
                 resp.raise_for_status()
                 data = resp.json()
