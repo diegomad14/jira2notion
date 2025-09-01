@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
@@ -64,7 +65,7 @@ def parse_jira_description(description):
         return ""
     
     try:
-        description_json = description if isinstance(description, dict) else eval(description)
+        description_json = description if isinstance(description, dict) else json.loads(description)
         content = description_json.get('content', [])
         formatted_text = ""
 
@@ -85,6 +86,9 @@ def parse_jira_description(description):
                         formatted_text += "\n"
 
         return formatted_text.strip()
+    except json.JSONDecodeError as e:
+        logger.error(f"Error parsing Jira description: {e}")
+        return description
     except Exception as e:
         logger.error(f"Error parsing Jira description: {e}")
         return description
