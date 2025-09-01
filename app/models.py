@@ -9,4 +9,5 @@ class JiraIssue(BaseModel):
     created: str
     reporter: Optional[dict]
     displayName: Optional[str]
+    emailAddress: Optional[str]
     description_adv: Optional[dict]
