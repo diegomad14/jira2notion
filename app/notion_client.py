@@ -368,16 +368,17 @@ async def create_notion_page(issue: JiraIssue):
                 "Reporter": {
                     "rich_text": [{"type": "text", "text": {"content": reporter_name}}]
                 },
-                "Creation Date": {
+                "Fecha de creación": {
                     "date": {"start": created_date_iso}
                 },
                 "Tags": {
-                    "multi_select": [{"name": "work"}]
+                    # Notion database uses the Spanish tag name 'trabajo'
+                    "multi_select": [{"name": "trabajo"}]
                 },
-                "Assignment": {
+                "Asignación": {
                     "people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]
                 },
-                "Verified": {
+                "Verificado": {
                     "checkbox": False
                 }
             },
@@ -513,7 +514,7 @@ async def create_or_update_notion_page(issue: JiraIssue):
 
 async def set_notion_verified(page: dict, verified) -> dict:
     """
-    Update the checkbox field 'Verified' on the Notion page.
+    Update the checkbox field 'Verificado' on the Notion page.
     The value can be a boolean or a convertible string (like "True", "Initial", etc.).
     """
     try:
@@ -525,16 +526,18 @@ async def set_notion_verified(page: dict, verified) -> dict:
         page_id = page["id"]
         payload = {
             "properties": {
-                "Verified": {
+                "Verificado": {
                     "checkbox": verified_bool
                 }
             }
         }
         response = await notion.pages.update(page_id=page_id, **payload)
-        logger.info(f"Field 'Verified' updated to {verified_bool} on page {page_id}")
+        logger.info(f"Field 'Verificado' updated to {verified_bool} on page {page_id}")
         return response
     except Exception as e:
-        logger.error(f"Error updating 'Verified' field in Notion for page {page.get('id', 'unknown')}: {e}")
+        logger.error(
+            f"Error updating 'Verificado' field in Notion for page {page.get('id', 'unknown')}: {e}"
+        )
         raise
 
 
