@@ -7,16 +7,6 @@ JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
 
-FIELDS_NEEDED = [
-    "summary",
-    "status",
-    "assignee",
-    "reporter",
-    "created",
-    "description",
-    "customfield_12286",
-]
-
 async def check_jira_connection() -> bool:
     """Verifica la conexión con Jira."""
     try:

@@ -25,21 +25,9 @@ async def process_updated_issues(last_key):
     for issue in issues:
         issue_key = issue.key
         logger.info(f"Procesando issue actualizado: {issue_key}")
-
-        existing_page = await create_or_update_notion_page(issue_key)
-
-        if not existing_page:
-            logger.info(f"No se encontró página existente para el issue {issue_key}, creando una nueva...")
-            await create_notion_page(issue)
-        else:
-            logger.info(f"La página ya existe para el issue {issue_key}, se actualizará si es necesario.")
-            await update_notion_page(issue, existing_page)
-
+        await create_or_update_notion_page(issue)
         last_processed_issue = issue_key
 
-    if last_processed_issue:
-        await state.update_last_key(last_processed_issue)
-    
     return {"message": "Processed all updated issues.", "last_issue": last_processed_issue}
 
 async def process_new_issues(last_processed_issue_key):
