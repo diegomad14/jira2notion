@@ -1,8 +1,8 @@
 summary: Name
 key: Jira Issue Key
 reporter: Reporter
-created: Creation Date
+created: Fecha de creación
 status: Status
-assignee: Assignee
+assignee: Asignación
 description: Description
 customfield_12286: Additional Info

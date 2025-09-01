@@ -460,9 +460,9 @@ async def create_notion_page(issue: JiraIssue, database_id: str):
 
         # Add static properties if they exist in the database
         static_props = {
-            "Tags": {"multi_select": [{"name": "Work"}]},
-            "Assignee": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]},
-            "Verified": {"checkbox": False},
+            "Tags": {"multi_select": [{"name": "trabajo"}]},
+            "Asignación": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]},
+            "Verificado": {"checkbox": False},
         }
         for prop_name, prop_value in static_props.items():
             if prop_name in existing_props:
@@ -570,8 +570,8 @@ async def update_notion_page(page_id: str, issue: JiraIssue, database_id: str):
 
 
         static_props = {
-            "Tags": {"multi_select": [{"name": "Work"}]},
-            "Assignee": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]},
+            "Tags": {"multi_select": [{"name": "trabajo"}]},
+            "Asignación": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]},
         }
         for prop_name, prop_value in static_props.items():
             if prop_name in existing_props:
@@ -612,13 +612,13 @@ async def create_or_update_notion_page(issue: JiraIssue, database_id: str):
 
 async def set_notion_verified(page: dict, verified, database_id: str) -> dict:
     """
-    Update the checkbox field 'Verified' on the Notion page.
+    Update the checkbox field 'Verificado' on the Notion page.
     The value can be a boolean or a convertible string (like "True", "Initial", etc.).
     """
     try:
         existing_props = await get_database_properties(database_id)
-        if "Verified" not in existing_props:
-            logger.warning("Property 'Verified' not found in Notion database; skipping update")
+        if "Verificado" not in existing_props:
+            logger.warning("Property 'Verificado' not found in Notion database; skipping update")
             return page
 
         if isinstance(verified, str):
@@ -629,17 +629,17 @@ async def set_notion_verified(page: dict, verified, database_id: str) -> dict:
         page_id = page["id"]
         payload = {
             "properties": {
-                "Verified": {
+                "Verificado": {
                     "checkbox": verified_bool
                 }
             }
         }
         response = await notion.pages.update(page_id=page_id, **payload)
-        logger.info(f"Field 'Verified' updated to {verified_bool} on page {page_id}")
+        logger.info(f"Field 'Verificado' updated to {verified_bool} on page {page_id}")
         return response
     except Exception as e:
         logger.error(
-            f"Error updating 'Verified' field in Notion for page {page.get('id', 'unknown')}: {e}"
+            f"Error updating 'Verificado' field in Notion for page {page.get('id', 'unknown')}: {e}"
         )
         raise
 
