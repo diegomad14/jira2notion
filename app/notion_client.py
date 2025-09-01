@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
+JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
 
 notion = AsyncClient(auth=NOTION_API_KEY)
 
@@ -400,7 +401,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "type": "text",
                                 "text": {
                                     "content": key_content,
-                                    "link": {"url": f"https://example.atlassian.net/browse/{key_content}"}
+                                    "link": {"url": f"{JIRA_DOMAIN}/browse/{key_content}"}
                                 }
                             }
                         ]
