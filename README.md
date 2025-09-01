@@ -25,8 +25,9 @@ in a Notion database, eliminating the need for manual synchronization.
 
 ### 🗂️ Multiple Project Synchronization
 
--   Define a `projects` list in `app/config.py` containing the Jira key,
-    Notion database ID, and a project-specific JQL filter.
+-   Set the `PROJECTS` environment variable to a JSON array where each
+    entry contains the Jira key, Notion database ID, and a project-
+    specific JQL filter.
 -   The `get_new_issues` and `get_updated_issues` functions combine the
     time window with the project's filter to build the final JQL query.
 -   The entry point iterates over this list and synchronizes each
@@ -90,22 +91,20 @@ environment):
   `CHECK_INTERVAL`       Sync interval in seconds         `10`
 
   `LOG_FILE`             Log file path                    `app.log`
+ 
+  `PROJECTS`             JSON list of project configs     `[{"key":"PROJ","database_id":"abcd1234","jql":"project = PROJ"}]`
   ----------------------------------------------------------------------------------
 
-Project-specific settings (`key`, `database_id`, and `jql`) are defined in
-`app/config.py` inside the `projects` list.
+`PROJECTS` holds project-specific settings (`key`, `database_id`, and
+`jql`) in JSON format:
 
-```python
-projects = [
-    ProjectConfig(
-        key="PROJ",
-        database_id="abcd1234...",
-        jql="project = PROJ AND status != Done ORDER BY updated DESC",
-    ),
-]
+```bash
+PROJECTS='[
+  {"key": "PROJ", "database_id": "abcd1234...", "jql": "project = PROJ"}
+]'
 ```
 The `/sync-user-issues` endpoint processes every entry in this list and
-returns an error if no projects are configured.
+returns an error if none are configured.
 
 ### Field mapping
 
