@@ -75,7 +75,7 @@ async def get_updated_issues(project_key: str, base_jql: str) -> list[JiraIssue]
 
 
 async def _fetch_issues(jql: str) -> list[JiraIssue]:
-    url = f"{JIRA_DOMAIN}/rest/api/3/search/jql"
+    url = f"{JIRA_DOMAIN}/rest/api/3/search"
     auth = (JIRA_EMAIL, JIRA_API_TOKEN)
 
     issues_out: list[JiraIssue] = []
