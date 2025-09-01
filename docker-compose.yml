@@ -12,7 +12,7 @@ services:
     environment:
       - JIRA_EMAIL=${JIRA_EMAIL}
       - JIRA_API_TOKEN=${JIRA_API_TOKEN}
-      - JIRA_DOMAIN=${JIRA_DOMAIN}              
-      - JIRA_PROJECT_KEY=${JIRA_PROJECT_KEY}    
+      - JIRA_DOMAIN=${JIRA_DOMAIN}
       - NOTION_API_KEY=${NOTION_API_KEY}
       - NOTION_DATABASE_ID=${NOTION_DATABASE_ID}
+      - PROJECTS=${PROJECTS}

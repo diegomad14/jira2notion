@@ -88,6 +88,8 @@ environment):
   `JIRA_DOMAIN`          Jira instance domain             `example.atlassian.net`
   `NOTION_API_KEY`       Notion integration token         `secret_xxx`
 
+  `NOTION_DATABASE_ID`   Default Notion database ID       `abcd1234...`
+
   `CHECK_INTERVAL`       Sync interval in seconds         `10`
 
   `LOG_FILE`             Log file path                    `app.log`
