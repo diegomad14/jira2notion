@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 import pytz
 import yaml
 from notion_client import AsyncClient
+from typing import Optional
 
 from .models import JiraIssue
 
@@ -23,7 +24,7 @@ with FIELD_MAP_PATH.open("r", encoding="utf-8") as f:
 notion = AsyncClient(auth=NOTION_API_KEY)
 
 # Cache for Notion database property names
-_NOTION_PROPERTIES: set[str] | None = None
+_NOTION_PROPERTIES: Optional[set[str]] = None
 
 
 async def get_database_properties() -> set[str]:
