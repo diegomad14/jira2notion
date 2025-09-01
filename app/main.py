@@ -173,11 +173,16 @@ from .issue_processor import sync_all_user_issues
 async def sync_user_issues():
     """
     Synchronize all tickets assigned to the configured Jira user
-    with the Notion database:
+    across all configured projects. For each project:
     - Create new pages if they do not exist.
     - Update status to 'Initial' if they already exist.
     """
     if not settings.projects:
         raise HTTPException(status_code=400, detail="No projects configured")
-    return await sync_all_user_issues(settings.projects[0].database_id)
+
+    results: dict[str, Any] = {}
+    for project in settings.projects:
+        results[project.key] = await sync_all_user_issues(project)
+
+    return JSONResponse(content=results)
 

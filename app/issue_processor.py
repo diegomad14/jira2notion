@@ -100,11 +100,14 @@ async def periodic_task(project: ProjectConfig, last_processed_issue_key, manual
 
     return last_processed_issue_key
 
-async def sync_all_user_issues(database_id: str):
+async def sync_all_user_issues(project: ProjectConfig):
     try:
-        logger.info("Starting full synchronization of issues assigned to the user")
+        logger.info(
+            f"Starting full synchronization of issues assigned to the user for project {project.key}"
+        )
 
         jql = (
+            f'project = {project.key} AND '
             'assignee = currentUser() AND '
             'status IN ("To Do","In Progress","Impact Estimated","QUARANTINE",'
             '"Resolution In Progress","Routing","Waiting For Customer") '
@@ -125,23 +128,26 @@ async def sync_all_user_issues(database_id: str):
             issue_key = issue.get("key")
             logger.info(f"Synchronizing issue: {issue_key}")
 
-            existing_page = await find_notion_page_by_ticket(issue_key, database_id)
+            existing_page = await find_notion_page_by_ticket(issue_key, project.database_id)
 
             if existing_page:
                 logger.info(
                     f"Updating status to 'Initial' for the existing page of {issue_key}"
                 )
-                await set_notion_verified(existing_page, False, database_id)
-                await update_notion_page(existing_page["id"], issue, database_id)
+                await set_notion_verified(existing_page, False, project.database_id)
+                await update_notion_page(existing_page["id"], issue, project.database_id)
             else:
                 logger.info(
                     f"Creating new Notion page with status 'Initial' for {issue_key}"
                 )
-                await create_notion_page(issue, database_id)
+                await create_notion_page(issue, project.database_id)
 
             processed_issues.append(issue_key)
 
-        return {"message": f"Synchronized {len(processed_issues)} issues", "issues": processed_issues}
+        return {
+            "message": f"Synchronized {len(processed_issues)} issues",
+            "issues": processed_issues,
+        }
 
     except Exception as e:
         logger.error(f"Error in full synchronization: {e}", exc_info=True)

@@ -95,6 +95,18 @@ environment):
 Project-specific settings (`key`, `database_id`, and `jql`) are defined in
 `app/config.py` inside the `projects` list.
 
+```python
+projects = [
+    ProjectConfig(
+        key="PROJ",
+        database_id="abcd1234...",
+        jql="project = PROJ AND status != Done ORDER BY updated DESC",
+    ),
+]
+```
+The `/sync-user-issues` endpoint processes every entry in this list and
+returns an error if no projects are configured.
+
 ### Field mapping
 
 Jira and Notion field names are linked in `app/field_map.yaml`.
@@ -154,7 +166,7 @@ docker run -d \
   `POST`   `/check-new-issues`       Process newly created issues
 
   `POST`   `/sync-user-issues`       Full synchronization of all user-assigned
-                                     issues
+                                     issues across configured projects
   -----------------------------------------------------------------------------
 
 ------------------------------------------------------------------------
