@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 import yaml
@@ -80,7 +80,7 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
     auth = (JIRA_EMAIL, JIRA_API_TOKEN)
 
     issues_out: list[JiraIssue] = []
-    start_at = 0
+    next_page: Optional[str] = None
     max_results = 100
 
     try:
@@ -89,9 +89,10 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
                 payload = {
                     "jql": jql,
                     "fields": FIELDS_NEEDED,
-                    "startAt": start_at,
                     "maxResults": max_results,
                 }
+                if next_page:
+                    payload["nextPageToken"] = next_page
 
                 resp = await client.post(
                     url,
@@ -121,8 +122,8 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
                     except ValidationError as err:
                         print(f"Skipping invalid issue {issue_data.get('key')}: {err}")
 
-                start_at += max_results
-                if start_at >= data.get("total", 0):
+                next_page = data.get("nextPageToken")
+                if not next_page or data.get("isLast"):
                     break
 
         print(f"Issues returned by Jira: {issues_out}")
