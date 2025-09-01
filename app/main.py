@@ -3,7 +3,6 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from typing import Dict, Any
-import logging
 
 from .issue_processor import process_updated_issues, process_new_issues, periodic_task
 from .logger_config import setup_logger
