@@ -57,7 +57,7 @@ async def get_new_issues(project_key: str, base_jql: str) -> list[JiraIssue]:
     jql = _compose_jql(
         project_key,
         base_jql,
-        'created >= "-3m"',
+        'created >= -3m',
         "created DESC",
     )
     return await _fetch_issues(jql)
@@ -68,7 +68,7 @@ async def get_updated_issues(project_key: str, base_jql: str) -> list[JiraIssue]
     jql = _compose_jql(
         project_key,
         base_jql,
-        'updated >= "-3m" AND created >= "-5d"',
+        'updated >= -3m AND created >= -5d',
         "updated DESC",
     )
     return await _fetch_issues(jql)
