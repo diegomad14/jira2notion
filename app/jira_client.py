@@ -5,6 +5,8 @@ from typing import Any
 import httpx
 import yaml
 
+from pydantic import ValidationError
+
 from .models import JiraIssue
 
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
@@ -59,38 +61,37 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             while True:
-                body = {
-                    "jql": jql,
-                    "fields": FIELDS_NEEDED,
-                }
+                body = {"jql": jql, "fields": FIELDS_NEEDED}
                 if next_page_token:
                     body["nextPageToken"] = next_page_token
 
-                resp = await client.post(url, json=body, auth=auth,
-                                         headers={"Accept": "application/json",
-                                                  "Content-Type": "application/json"})
+                resp = await client.post(
+                    url,
+                    json=body,
+                    auth=auth,
+                    headers={"Accept": "application/json", "Content-Type": "application/json"},
+                )
                 resp.raise_for_status()
                 data = resp.json()
 
                 for it in data.get("issues", []):
                     f = it.get("fields", {}) or {}
-                    assignee: dict[str, Any] | None = f.get("assignee")
-                    reporter: dict[str, Any] | None = f.get("reporter")
+                    issue_data: dict[str, Any] = {"key": it.get("key")}
 
-                    issue: JiraIssue = {
-                        "key": it.get("key"),
-                        "summary": f.get("summary", "") or "",
-                        "description_rest": str(f.get("customfield_12286") or ""),
-                        "status": (f.get("status") or {}).get("name", "") or "",
-                        "displayName": (assignee or {}).get("displayName"),
-                        "emailAddress": (assignee or {}).get("emailAddress"),
-                        "reporter": reporter or {},
-                        "assignee": assignee or {},
-                        "created": f.get("created"),
-                        "description_adv": f.get("description"),
-                    }
+                    for field in FIELDS_NEEDED:
+                        value = f.get(field)
+                        if field == "status":
+                            value = (value or {}).get("name") if isinstance(value, dict) else value
+                        issue_data[field] = value
 
-                    issues_out.append(issue)
+                    assignee: dict[str, Any] = issue_data.get("assignee") or {}
+                    issue_data["displayName"] = assignee.get("displayName")
+                    issue_data["emailAddress"] = assignee.get("emailAddress")
+
+                    try:
+                        issues_out.append(JiraIssue(**issue_data))
+                    except ValidationError as err:
+                        print(f"Skipping invalid issue {issue_data.get('key')}: {err}")
 
                 next_page_token = data.get("nextPageToken")
                 if not next_page_token:
