@@ -23,6 +23,16 @@ in a Notion database, eliminating the need for manual synchronization.
 -   📑 **Structured Logging**: rotating logs stored in file and console
     for monitoring and debugging.
 
+### 🗂️ Multiple Project Synchronization
+
+-   Define a `projects` list in `app/config.py` containing the Jira key,
+    Notion database ID, and a project-specific JQL filter.
+-   The `get_new_issues` and `get_updated_issues` functions combine the
+    time window with the project's filter to build the final JQL query.
+-   The entry point iterates over this list and synchronizes each
+    project independently, tracking the last processed issue for each
+    one.
+
 ------------------------------------------------------------------------
 
 ## 🏗️ System Architecture
@@ -75,17 +85,15 @@ environment):
   `JIRA_API_TOKEN`       Jira API authentication token    `ATATT3xFfGF0...`
 
   `JIRA_DOMAIN`          Jira instance domain             `example.atlassian.net`
-
-  `JIRA_PROJECT_KEY`     Jira project identifier          `PROJ`
-
   `NOTION_API_KEY`       Notion integration token         `secret_xxx`
-
-  `NOTION_DATABASE_ID`   Target Notion database ID        `a1841d5b...`
 
   `CHECK_INTERVAL`       Sync interval in seconds         `10`
 
   `LOG_FILE`             Log file path                    `app.log`
   ----------------------------------------------------------------------------------
+
+Project-specific settings (`key`, `database_id`, and `jql`) are defined in
+`app/config.py` inside the `projects` list.
 
 ### Field mapping
 

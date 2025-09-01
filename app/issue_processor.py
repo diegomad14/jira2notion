@@ -7,7 +7,7 @@ from .notion_client import (
 )
 from .filters import filter_issues_by_assignee
 from .logger_config import setup_logger
-from .config import settings
+from .config import settings, ProjectConfig
 from .notion_client import find_notion_page_by_ticket, set_notion_verified
 from .models import JiraIssue
 from fastapi import HTTPException
@@ -15,9 +15,9 @@ from fastapi import HTTPException
 
 logger = setup_logger()
 
-async def process_updated_issues(last_key):
-    """Process issues updated since the last recorded issue."""
-    issues: list[JiraIssue] = await get_updated_issues()
+async def process_updated_issues(project: ProjectConfig, last_key):
+    """Process issues updated since the last recorded issue for a project."""
+    issues: list[JiraIssue] = await get_updated_issues(project.key, project.jql)
 
     if not issues:
         logger.info("No new issues or updates.")
@@ -31,15 +31,15 @@ async def process_updated_issues(last_key):
             continue
         issue_key = issue.get("key")
         logger.info(f"Processing updated issue: {issue_key}")
-        await create_or_update_notion_page(issue)
+        await create_or_update_notion_page(issue, project.database_id)
         last_processed_issue = issue_key
 
     return {"message": "Processed all updated issues.", "last_issue": last_processed_issue}
 
-async def process_new_issues(last_processed_issue_key):
+async def process_new_issues(project: ProjectConfig, last_processed_issue_key):
     try:
         logger.info("Starting check for new issues in Jira")
-        issues: list[JiraIssue] = await get_new_issues()
+        issues: list[JiraIssue] = await get_new_issues(project.key, project.jql)
         
         if issues:
             logger.info(f"Retrieved {len(issues)} new issues from Jira")
@@ -50,7 +50,7 @@ async def process_new_issues(last_processed_issue_key):
                 if latest_issue.get("key") != last_processed_issue_key:
                     logger.info(f"New issue detected: {latest_issue.get('key')}")
 
-                    await create_or_update_notion_page(latest_issue)
+                    await create_or_update_notion_page(latest_issue, project.database_id)
                     last_processed_issue_key = latest_issue.get("key")
 
                     logger.info(
@@ -73,9 +73,9 @@ async def process_new_issues(last_processed_issue_key):
         logger.error(f"Error processing new issues: {e}")
         raise
 
-async def periodic_task(last_processed_issue_key, manual_run: bool = False):
+async def periodic_task(project: ProjectConfig, last_processed_issue_key, manual_run: bool = False):
     try:
-        issues: list[JiraIssue] = await get_updated_issues()
+        issues: list[JiraIssue] = await get_updated_issues(project.key, project.jql)
         logger.info(f"Fetched {len(issues)} updated issues")
         filtered_issues = filter_issues_by_assignee(issues, settings.jira_assignee)
 
@@ -86,7 +86,7 @@ async def periodic_task(last_processed_issue_key, manual_run: bool = False):
                     f"New issue or update detected: {latest_issue.get('key')}"
                 )
 
-                await create_or_update_notion_page(latest_issue)
+                await create_or_update_notion_page(latest_issue, project.database_id)
                 last_processed_issue_key = latest_issue.get("key")
             else:
                 logger.info("No new issues or updates.")
@@ -100,7 +100,7 @@ async def periodic_task(last_processed_issue_key, manual_run: bool = False):
 
     return last_processed_issue_key
 
-async def sync_all_user_issues():
+async def sync_all_user_issues(database_id: str):
     try:
         logger.info("Starting full synchronization of issues assigned to the user")
 
@@ -125,19 +125,19 @@ async def sync_all_user_issues():
             issue_key = issue.get("key")
             logger.info(f"Synchronizing issue: {issue_key}")
 
-            existing_page = await find_notion_page_by_ticket(issue_key)
+            existing_page = await find_notion_page_by_ticket(issue_key, database_id)
 
             if existing_page:
                 logger.info(
                     f"Updating status to 'Initial' for the existing page of {issue_key}"
                 )
-                await set_notion_verified(existing_page, False)
-                await update_notion_page(existing_page["id"], issue)
+                await set_notion_verified(existing_page, False, database_id)
+                await update_notion_page(existing_page["id"], issue, database_id)
             else:
                 logger.info(
                     f"Creating new Notion page with status 'Initial' for {issue_key}"
                 )
-                await create_notion_page(issue)
+                await create_notion_page(issue, database_id)
 
             processed_issues.append(issue_key)
 

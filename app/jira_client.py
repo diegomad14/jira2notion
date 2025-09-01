@@ -12,7 +12,6 @@ from .models import JiraIssue
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
-JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
 
 # Load Jira field to Notion property mapping
 FIELD_MAP_PATH = Path(__file__).with_name("field_map.yaml")
@@ -35,19 +34,23 @@ async def check_jira_connection() -> bool:
         return False
 
 
-async def get_new_issues() -> list[JiraIssue]:
-    """Fetch new tickets created in the last 3 minutes."""
-    jql = f'project = {JIRA_PROJECT_KEY} AND created >= "-3m" ORDER BY created DESC'
+async def get_new_issues(project_key: str, base_jql: str) -> list[JiraIssue]:
+    """Fetch new tickets for the given project created in the last 3 minutes."""
+    jql_parts = [f"project = {project_key}"]
+    if base_jql:
+        jql_parts.append(base_jql)
+    jql_parts.append('created >= "-3m" ORDER BY created DESC')
+    jql = " AND ".join(jql_parts)
     return await _fetch_issues(jql)
 
 
-async def get_updated_issues() -> list[JiraIssue]:
-    """Fetch tickets updated in the last 3 minutes (limited to the last 5 days)."""
-    jql = (
-        f'project = {JIRA_PROJECT_KEY} AND updated >= "-3m" AND created >= "-5d" '
-        'AND status IN ("Impact Estimated","QUARANTINE","Resolution In Progress","Routing","Waiting For Customer") '
-        'ORDER BY updated DESC'
-    )
+async def get_updated_issues(project_key: str, base_jql: str) -> list[JiraIssue]:
+    """Fetch tickets for the given project updated in the last 3 minutes."""
+    jql_parts = [f"project = {project_key}"]
+    if base_jql:
+        jql_parts.append(base_jql)
+    jql_parts.append('updated >= "-3m" AND created >= "-5d" ORDER BY updated DESC')
+    jql = " AND ".join(jql_parts)
     return await _fetch_issues(jql)
 
 

@@ -26,22 +26,21 @@ with FIELD_MAP_PATH.open("r", encoding="utf-8") as f:
 notion = AsyncClient(auth=NOTION_API_KEY)
 
 # Cache for Notion database property names
-_NOTION_PROPERTIES: Optional[set[str]] = None
+_NOTION_PROPERTIES: dict[str, set[str]] = {}
 
 
-async def get_database_properties() -> set[str]:
+async def get_database_properties(database_id: str) -> set[str]:
     """Return the set of property names defined in the target Notion database."""
-    global _NOTION_PROPERTIES
-    if _NOTION_PROPERTIES is None:
+    if database_id not in _NOTION_PROPERTIES:
         try:
-            response = await notion.databases.retrieve(NOTION_DATABASE_ID)
-            _NOTION_PROPERTIES = set(response.get("properties", {}).keys())
+            response = await notion.databases.retrieve(database_id)
+            _NOTION_PROPERTIES[database_id] = set(response.get("properties", {}).keys())
         except Exception as e:
             logger.error(f"Error retrieving Notion database properties: {e}")
-            _NOTION_PROPERTIES = set()
-    return _NOTION_PROPERTIES
+            _NOTION_PROPERTIES[database_id] = set()
+    return _NOTION_PROPERTIES[database_id]
 
-async def check_notion_connection() -> bool:
+async def check_notion_connection(database_id: str | None = None) -> bool:
     """
     Verify the connection with the Notion API.
     Returns True if the connection is successful, False otherwise.
@@ -49,7 +48,8 @@ async def check_notion_connection() -> bool:
     try:
         client = AsyncClient(auth=NOTION_API_KEY)
 
-        response = await client.databases.retrieve(NOTION_DATABASE_ID)
+        db_id = database_id or NOTION_DATABASE_ID
+        response = await client.databases.retrieve(db_id)
 
         if response:
             return True
@@ -108,11 +108,14 @@ def parse_jira_description(description):
 
 
 async def build_properties(
-    mapping: dict[str, str], issue: JiraIssue, existing_props: Optional[set[str]] = None
+    mapping: dict[str, str],
+    issue: JiraIssue,
+    database_id: str,
+    existing_props: Optional[set[str]] = None,
 ) -> dict[str, dict]:
     """Build a Notion properties payload from a Jira issue using the field mapping."""
     if existing_props is None:
-        existing_props = await get_database_properties()
+        existing_props = await get_database_properties(database_id)
 
     # Parse creation date once for reuse
     created_str = issue.get("created", "")
@@ -120,8 +123,8 @@ async def build_properties(
         created_date = datetime.strptime(created_str, "%Y-%m-%dT%H:%M:%S.%f%z")
     else:
         created_date = datetime.strptime(created_str, "%Y-%m-%d")
-    colombia_tz = timezone(timedelta(hours=-5))
-    created_date = created_date.replace(tzinfo=colombia_tz)
+    utc_minus_5 = timezone(timedelta(hours=-5))
+    created_date = created_date.replace(tzinfo=utc_minus_5)
     created_date_iso = created_date.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     properties: dict[str, dict] = {}
@@ -160,7 +163,7 @@ async def build_properties(
     return properties
 
 
-async def find_notion_page_by_ticket(ticket_key: str) -> dict:
+async def find_notion_page_by_ticket(ticket_key: str, database_id: str) -> dict:
     """
     Query Notion to find a page whose Jira key field matches the ticket_key.
     """
@@ -174,7 +177,7 @@ async def find_notion_page_by_ticket(ticket_key: str) -> dict:
                 }
             }
         }
-        response = await notion.databases.query(database_id=NOTION_DATABASE_ID, **query)
+        response = await notion.databases.query(database_id=database_id, **query)
         results = response.get("results", [])
         if results:
             return results[0]
@@ -183,7 +186,7 @@ async def find_notion_page_by_ticket(ticket_key: str) -> dict:
     return None
 
 
-async def create_notion_page(issue: JiraIssue):
+async def create_notion_page(issue: JiraIssue, database_id: str):
     """Create a new page in Notion using the issue information."""
     try:
         logger.info(f"Creating Notion page for issue: {issue.get('key')}")
@@ -452,14 +455,14 @@ async def create_notion_page(issue: JiraIssue):
             for chunk in adv_chunks
         ]
 
-        existing_props = await get_database_properties()
-        properties = await build_properties(FIELD_MAP, issue, existing_props)
+        existing_props = await get_database_properties(database_id)
+        properties = await build_properties(FIELD_MAP, issue, database_id, existing_props)
 
         # Add static properties if they exist in the database
         static_props = {
-            "Tags": {"multi_select": [{"name": "trabajo"}]},
-            "Asignación": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]},
-            "Verificado": {"checkbox": False},
+            "Tags": {"multi_select": [{"name": "Work"}]},
+            "Assignee": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]},
+            "Verified": {"checkbox": False},
         }
         for prop_name, prop_value in static_props.items():
             if prop_name in existing_props:
@@ -470,7 +473,7 @@ async def create_notion_page(issue: JiraIssue):
                 )
 
         payload = {
-            "parent": {"database_id": NOTION_DATABASE_ID},
+            "parent": {"database_id": database_id},
             "properties": properties,
             "children": [
                 {
@@ -554,21 +557,21 @@ async def create_notion_page(issue: JiraIssue):
         raise
 
 
-async def update_notion_page(page_id: str, issue: JiraIssue):
+async def update_notion_page(page_id: str, issue: JiraIssue, database_id: str):
     """Update the existing Notion page with the current issue information."""
     try:
         issue_key = issue.get("key", "UNKNOWN")
         logger.info(f"Updating Notion page for issue: {issue_key}")
 
-        existing_props = await get_database_properties()
+        existing_props = await get_database_properties(database_id)
 
 
-        properties = await build_properties(FIELD_MAP, issue, existing_props)
+        properties = await build_properties(FIELD_MAP, issue, database_id, existing_props)
 
 
         static_props = {
-            "Tags": {"multi_select": [{"name": "trabajo"}]},
-            "Asignación": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]},
+            "Tags": {"multi_select": [{"name": "Work"}]},
+            "Assignee": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]},
         }
         for prop_name, prop_value in static_props.items():
             if prop_name in existing_props:
@@ -589,33 +592,33 @@ async def update_notion_page(page_id: str, issue: JiraIssue):
         logger.error(f"Error updating Notion page for issue {issue_key}: {e}")
         raise
 
-async def create_or_update_notion_page(issue: JiraIssue):
+async def create_or_update_notion_page(issue: JiraIssue, database_id: str):
     """
     Function that first checks if a Notion page already exists for the issue.
     If it exists, it is updated; otherwise, a new one is created.
     """
     try:
-        existing_page = await find_notion_page_by_ticket(issue.get("key"))
+        existing_page = await find_notion_page_by_ticket(issue.get("key"), database_id)
         if existing_page:
             page_id = existing_page.get("id")
             logger.info(f"Page already exists for issue {issue.get('key')}, proceeding to update.")
-            return await update_notion_page(page_id, issue)
+            return await update_notion_page(page_id, issue, database_id)
         else:
             logger.info(f"No existing page found for issue {issue.get('key')}, creating a new one.")
-            return await create_notion_page(issue)
+            return await create_notion_page(issue, database_id)
     except Exception as e:
         logger.error(f"Error in create_or_update_notion_page for issue {issue.get('key')}: {e}")
         raise
 
-async def set_notion_verified(page: dict, verified) -> dict:
+async def set_notion_verified(page: dict, verified, database_id: str) -> dict:
     """
-    Update the checkbox field 'Verificado' on the Notion page.
+    Update the checkbox field 'Verified' on the Notion page.
     The value can be a boolean or a convertible string (like "True", "Initial", etc.).
     """
     try:
-        existing_props = await get_database_properties()
-        if "Verificado" not in existing_props:
-            logger.warning("Property 'Verificado' not found in Notion database; skipping update")
+        existing_props = await get_database_properties(database_id)
+        if "Verified" not in existing_props:
+            logger.warning("Property 'Verified' not found in Notion database; skipping update")
             return page
 
         if isinstance(verified, str):
@@ -626,17 +629,17 @@ async def set_notion_verified(page: dict, verified) -> dict:
         page_id = page["id"]
         payload = {
             "properties": {
-                "Verificado": {
+                "Verified": {
                     "checkbox": verified_bool
                 }
             }
         }
         response = await notion.pages.update(page_id=page_id, **payload)
-        logger.info(f"Field 'Verificado' updated to {verified_bool} on page {page_id}")
+        logger.info(f"Field 'Verified' updated to {verified_bool} on page {page_id}")
         return response
     except Exception as e:
         logger.error(
-            f"Error updating 'Verificado' field in Notion for page {page.get('id', 'unknown')}: {e}"
+            f"Error updating 'Verified' field in Notion for page {page.get('id', 'unknown')}: {e}"
         )
         raise
 
