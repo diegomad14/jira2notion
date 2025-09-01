@@ -55,18 +55,22 @@ async def get_updated_issues(project_key: str, base_jql: str) -> list[JiraIssue]
 
 
 async def _fetch_issues(jql: str) -> list[JiraIssue]:
-    url = f"{JIRA_DOMAIN}/rest/api/3/search/jql"
+    url = f"{JIRA_DOMAIN}/rest/api/3/search"
     auth = (JIRA_EMAIL, JIRA_API_TOKEN)
 
     issues_out: list[JiraIssue] = []
-    next_page_token = None
+    start_at = 0
+    max_results = 100
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             while True:
-                body = {"jql": jql, "fields": FIELDS_NEEDED}
-                if next_page_token:
-                    body["nextPageToken"] = next_page_token
+                body = {
+                    "jql": jql,
+                    "fields": FIELDS_NEEDED,
+                    "startAt": start_at,
+                    "maxResults": max_results,
+                }
 
                 resp = await client.post(
                     url,
@@ -96,12 +100,12 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
                     except ValidationError as err:
                         print(f"Skipping invalid issue {issue_data.get('key')}: {err}")
 
-                next_page_token = data.get("nextPageToken")
-                if not next_page_token:
+                start_at += max_results
+                if start_at >= data.get("total", 0):
                     break
 
         print(f"Issues returned by Jira: {issues_out}")
     except Exception as e:
-        print(f"Error querying Jira (search/jql): {e}")
+        print(f"Error querying Jira (search): {e}")
 
     return issues_out
