@@ -4,7 +4,7 @@ from .notion_client import create_or_update_notion_page, create_notion_page, upd
 from .filters import filter_issues_by_assignee
 from .logger_config import setup_logger
 from .config import settings
-from .notion_client import find_notion_page_by_ticket, set_notion_verificado
+from .notion_client import find_notion_page_by_ticket, set_notion_verified
 from fastapi import HTTPException
 
 
@@ -12,27 +12,27 @@ logger = setup_logger()
 
 async def process_updated_issues(last_key):
     """
-    Procesa los issues actualizados desde el último issue registrado.
+    Process issues updated since the last recorded issue.
     """
     issues = await get_updated_issues()
 
     if not issues:
-        logger.info("No hay nuevos issues ni actualizaciones.")
+        logger.info("No new issues or updates.")
         return {"message": "No new updates."}
     
     last_processed_issue = None
 
     for issue in issues:
         issue_key = issue.key
-        logger.info(f"Procesando issue actualizado: {issue_key}")
+        logger.info(f"Processing updated issue: {issue_key}")
 
         existing_page = await create_or_update_notion_page(issue_key)
 
         if not existing_page:
-            logger.info(f"No se encontró página existente para el issue {issue_key}, creando una nueva...")
+            logger.info(f"No existing page found for issue {issue_key}, creating a new one...")
             await create_notion_page(issue)
         else:
-            logger.info(f"La página ya existe para el issue {issue_key}, se actualizará si es necesario.")
+            logger.info(f"Page already exists for issue {issue_key}, updating if necessary.")
             await update_notion_page(issue, existing_page)
 
         last_processed_issue = issue_key
@@ -44,61 +44,61 @@ async def process_updated_issues(last_key):
 
 async def process_new_issues(last_processed_issue_key):
     try:
-        logger.info("Iniciando verificación de nuevos issues en Jira")
+        logger.info("Starting verification of new Jira issues")
         issues = await get_new_issues()
         
         if issues:
-            logger.info(f"Se obtuvieron {len(issues)} issues nuevos desde Jira")
+            logger.info(f"{len(issues)} new issues retrieved from Jira")
             filtered_issues = filter_issues_by_assignee(issues, settings.jira_assignee)
             
             if filtered_issues:
                 latest_issue = filtered_issues[0]
                 if latest_issue.key != last_processed_issue_key:
-                    logger.info(f"Nuevo issue detectado: {latest_issue.key}")
+                    logger.info(f"New issue detected: {latest_issue.key}")
                     
                     await create_or_update_notion_page(latest_issue)
                     last_processed_issue_key = latest_issue.key
                     
-                    logger.info(f"Página de Notion creada o actualizada para el issue: {latest_issue.key}")
-                    return {"message": "Nuevo issue procesado", "issue_key": latest_issue.key}
+                    logger.info(f"Notion page created or updated for issue: {latest_issue.key}")
+                    return {"message": "New issue processed", "issue_key": latest_issue.key}
                 else:
-                    logger.info(f"No hay nuevos issues asignados a {settings.jira_assignee}")
-                    return {"message": "No hay nuevos issues"}
+                    logger.info(f"No new issues assigned to {settings.jira_assignee}")
+                    return {"message": "No new issues"}
             else:
-                logger.info(f"No hay issues asignados a {settings.jira_assignee} en esta actualización")
-                return {"message": f"No hay issues asignados a {settings.jira_assignee} en esta actualización"}
+                logger.info(f"No issues assigned to {settings.jira_assignee} in this update")
+                return {"message": f"No issues assigned to {settings.jira_assignee} in this update"}
         else:
-            logger.info("No se encontraron issues nuevos en Jira")
-            return {"message": "No hay nuevos issues"}
+            logger.info("No new issues found in Jira")
+            return {"message": "No new issues"}
     except Exception as e:
-        logger.error(f"Error en el procesamiento de nuevos issues: {e}")
+        logger.error(f"Error processing new issues: {e}")
         raise
 
 async def periodic_task(last_processed_issue_key):
     while True:
         try:
             issues = await get_updated_issues()
-            logger.info(f"Se obtuvieron {len(issues)} issues actualizados")
+            logger.info(f"{len(issues)} updated issues retrieved")
             filtered_issues = filter_issues_by_assignee(issues, settings.jira_assignee)
             
             if filtered_issues:
                 latest_issue = filtered_issues[0]
                 if latest_issue.key != last_processed_issue_key:
-                    logger.info(f"Nuevo issue o actualización detectado: {latest_issue.key}")
+                    logger.info(f"New issue or update detected: {latest_issue.key}")
 
                     await create_or_update_notion_page(latest_issue)
                     last_processed_issue_key = latest_issue.key
                 else:
-                    logger.info("No hay nuevos issues ni actualizaciones.")
+                    logger.info("No new issues or updates.")
             else:
-                logger.info(f"No hay issues asignados a {settings.jira_assignee}.")
+                logger.info(f"No issues assigned to {settings.jira_assignee}.")
         except Exception as e:
-            logger.error(f"Error en la tarea periódica: {e}")
+            logger.error(f"Error in periodic task: {e}")
         await asyncio.sleep(settings.check_interval)
 
 async def sync_all_user_issues():
     try:
-        logger.info("Iniciando sincronización completa de issues asignados al usuario")
+        logger.info("Starting full synchronization of issues assigned to the user")
 
         jql = (
             'assignee = currentUser() AND '
@@ -110,29 +110,29 @@ async def sync_all_user_issues():
         issues = await _fetch_issues(jql)
 
         if not issues:
-            return {"message": "No hay issues asignados a este usuario."}
+            return {"message": "No issues assigned to this user."}
 
         processed_issues = []
 
         for issue in issues:
             issue_key = issue.key
-            logger.info(f"Sincronizando issue: {issue_key}")
+            logger.info(f"Synchronizing issue: {issue_key}")
 
             existing_page = await find_notion_page_by_ticket(issue_key)
 
             if existing_page:
-                logger.info(f"Actualizando estado a 'Inicial' para la página existente de {issue_key}")
-                await set_notion_verificado(existing_page, False)
+                logger.info(f"Updating status to 'Initial' for existing page of {issue_key}")
+                await set_notion_verified(existing_page, False)
                 await update_notion_page(existing_page["id"], issue)
             else:
-                logger.info(f"Creando nueva página en Notion con estado 'Inicial' para {issue_key}")
+                logger.info(f"Creating new Notion page with status 'Initial' for {issue_key}")
                 await create_notion_page(issue)
 
             processed_issues.append(issue_key)
 
-        return {"message": f"Sincronizados {len(processed_issues)} issues", "issues": processed_issues}
+        return {"message": f"Synchronized {len(processed_issues)} issues", "issues": processed_issues}
 
     except Exception as e:
-        logger.error(f"Error en sincronización completa: {e}", exc_info=True)
+        logger.error(f"Error in full synchronization: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 

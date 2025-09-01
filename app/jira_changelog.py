@@ -14,12 +14,12 @@ def get_ticket_changelog(ticket_id: str):
     response = requests.get(url, auth=auth)
     
     if response.status_code != 200:
-        print(f"DEBUG - Error en la respuesta de la API: {response.status_code}")
+        print(f"DEBUG - API response error: {response.status_code}")
         return None
 
     changelog = response.json().get("changelog", {}).get("histories", [])
     if not changelog:
-        print("DEBUG - No se encontró historial de cambios.")
+        print("DEBUG - No change history found.")
         return None
 
     latest_change = None
@@ -52,8 +52,8 @@ def get_ticket_changelog(ticket_id: str):
             latest_change_time = change_time
 
     if not last_change_was_assignee:
-        print("DEBUG - El último cambio no fue una asignación.")
+        print("DEBUG - The latest change was not an assignment.")
         return None
 
-    print(f"DEBUG - Último cambio detectado: {latest_change}")
+    print(f"DEBUG - Latest change detected: {latest_change}")
     return latest_change

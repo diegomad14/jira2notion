@@ -14,8 +14,8 @@ notion = AsyncClient(auth=NOTION_API_KEY)
 
 async def check_notion_connection() -> bool:
     """
-    Verifica la conexión con la API de Notion.
-    Retorna True si la conexión es exitosa, False si falla.
+    Verify the connection with the Notion API.
+    Returns True if the connection is successful, False otherwise.
     """
     try:
         client = AsyncClient(auth=NOTION_API_KEY)
@@ -26,14 +26,14 @@ async def check_notion_connection() -> bool:
             return True
         return False
     except Exception as e:
-        logging.error(f"Error en la conexión con Notion: {e}")
+        logging.error(f"Error connecting to Notion: {e}")
         return False
 
 
 
 def parse_jira_description(description):
     """
-    Parsea la descripción del ticket de Jira para convertirla en un texto formateado.
+    Parse the Jira ticket description into formatted text.
     """
     if not description:
         return ""
@@ -67,7 +67,7 @@ def parse_jira_description(description):
 
 async def find_notion_page_by_ticket(ticket_key: str) -> dict:
     """
-    Consulta Notion para buscar una página cuyo campo "Jira Issue Key" coincida con el ticket_key.
+    Query Notion for a page whose "Jira Issue Key" matches the given ticket_key.
     """
     try:
         query = {
@@ -83,17 +83,17 @@ async def find_notion_page_by_ticket(ticket_key: str) -> dict:
         if results:
             return results[0]
     except Exception as e:
-        logger.error(f"Error buscando página en Notion para ticket {ticket_key}: {e}")
+        logger.error(f"Error searching for page in Notion for ticket {ticket_key}: {e}")
     return None
 
 
 async def create_notion_page(issue: JiraIssue):
     """
-    Crea una nueva página en Notion usando la información del issue.
+    Create a new page in Notion using the issue information.
     """
     try:
-        logger.info(f"Creando página en Notion para el issue: {issue.key}")
-        reporter_name = issue.reporter.get("displayName", "Desconocido") if issue.reporter else "Desconocido"
+        logger.info(f"Creating page in Notion for issue: {issue.key}")
+        reporter_name = issue.reporter.get("displayName", "Unknown") if issue.reporter else "Unknown"
         key_content = issue.key if issue.key else ""
         description_rest_content = parse_jira_description(issue.description_rest) if issue.description_rest else ""
         description_adv_content = parse_jira_description(issue.description_adv) if issue.description_adv else ""
@@ -111,7 +111,7 @@ async def create_notion_page(issue: JiraIssue):
                 "type": "heading_1",
                 "heading_1": {
                     "rich_text": [
-                        {"type": "text", "text": {"content": "Puntos Críticos para Gestión de Tickets"}}
+                        {"type": "text", "text": {"content": "Critical Points for Ticket Management"}}
                     ]
                 }
             },
@@ -120,7 +120,7 @@ async def create_notion_page(issue: JiraIssue):
                 "type": "toggle",
                 "toggle": {
                     "rich_text": [
-                        {"type": "text", "text": {"content": "Cierre de Tickets"}}
+                        {"type": "text", "text": {"content": "Ticket Closure"}}
                     ],
                     "children": [
                         {
@@ -130,7 +130,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": "Tipificación y Etiquetas: Asegurarse de incluir la tipificación y las etiquetas adecuadas en todos los tickets cerrados."}
+                                        "text": {"content": "Categorization and Tags: Ensure that categorization and appropriate tags are included in all closed tickets."}
                                     }
                                 ],
                                 "checked": False
@@ -154,7 +154,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": "Tipo de Ticket Correcto: Verificar que los tickets de otros Issue Types no sean cerrados como *Issue Type Rest*."}
+                                        "text": {"content": "Correct Ticket Type: Verify that tickets of other Issue Types are not closed as *Issue Type Rest*."}
                                     }
                                 ],
                                 "checked": False
@@ -178,7 +178,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": "Ticket Linkeado: Confirmar que cada *Production Bug* tenga un ticket vinculado."}
+                                        "text": {"content": "Linked Ticket: Confirm that every *Production Bug* has a linked ticket."}
                                     }
                                 ],
                                 "checked": False
@@ -191,7 +191,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": "Duplicados: Duplicados de escalados deben quedar como *Production Bug* y finalizados."}
+                                        "text": {"content": "Duplicates: Escalation duplicates must remain as *Production Bug* and be closed."}
                                     }
                                 ],
                                 "checked": False
@@ -204,7 +204,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": "Sin componente: No asignar componentes a duplicados cerrados."}
+                                        "text": {"content": "No Component: Do not assign components to closed duplicates."}
                                     }
                                 ],
                                 "checked": False
@@ -217,7 +217,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": "Consistencia: Asegurar que el principal y el duplicado queden correctamente tipificados."}
+                                        "text": {"content": "Consistency: Ensure that the main ticket and the duplicate are properly categorized."}
                                     }
                                 ],
                                 "checked": False
@@ -231,7 +231,7 @@ async def create_notion_page(issue: JiraIssue):
                 "type": "toggle",
                 "toggle": {
                     "rich_text": [
-                        {"type": "text", "text": {"content": "Escalados"}}
+                        {"type": "text", "text": {"content": "Escalations"}}
                     ],
                     "children": [
                         {
@@ -241,7 +241,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": "Assignee: Asegurar que siempre sea el EL correspondiente de cada equipo."}
+                                        "text": {"content": "Assignee: Ensure it is always the corresponding EL of each team."}
                                     }
                                 ],
                                 "checked": False
@@ -254,7 +254,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": "Componentes y Datos Obligatorios: Confirmar que se incluyan todos los datos y componentes necesarios."}
+                                        "text": {"content": "Components and Required Data: Confirm that all necessary data and components are included."}
                                     }
                                 ],
                                 "checked": False
@@ -267,7 +267,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": "ETA IM: Asegurarse de que cada caso tenga el ETA IM del RSUP o ADVS antes de estar en estado *Escalated*."}
+                                        "text": {"content": "ETA IM: Ensure each case has the RSUP or ADVS ETA IM before being in *Escalated* state."}
                                     }
                                 ],
                                 "checked": False
@@ -280,7 +280,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": "Campos de Escalado: Completar todos los campos obligatorios."}
+                                        "text": {"content": "Escalation Fields: Complete all required fields."}
                                     }
                                 ],
                                 "checked": False
@@ -293,7 +293,7 @@ async def create_notion_page(issue: JiraIssue):
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": "Documentación Completa: Registrar el PM correspondiente, dejar evidencia detallada del caso en la descripción, y asegurar que los casos gestionados por el NOC sean documentados por quien los llevó."}
+                                        "text": {"content": "Complete Documentation: Record the corresponding PM, leave detailed case evidence in the description, and ensure that cases handled by the NOC are documented by the person who worked on them."}
                                     }
                                 ],
                                 "checked": False
@@ -312,7 +312,7 @@ async def create_notion_page(issue: JiraIssue):
                 "type": "heading_2",
                 "heading_2": {
                     "rich_text": [
-                        {"type": "text", "text": {"content": "Notas"}}
+                        {"type": "text", "text": {"content": "Notes"}}
                     ]
                 }
             },
@@ -321,7 +321,7 @@ async def create_notion_page(issue: JiraIssue):
                 "type": "paragraph",
                 "paragraph": {
                     "rich_text": [
-                        {"type": "text", "text": {"content": "Revisar que todo el backlog esté al día antes del **31/01**."}}
+                        {"type": "text", "text": {"content": "Ensure the entire backlog is up to date before **01/31**."}}
                     ]
                 }
             },
@@ -330,13 +330,13 @@ async def create_notion_page(issue: JiraIssue):
                 "type": "paragraph",
                 "paragraph": {
                     "rich_text": [
-                        {"type": "text", "text": {"content": "Verificar que los tickets creados en 2025 estén correctamente tipificados."}}
+                        {"type": "text", "text": {"content": "Verify that tickets created in 2025 are correctly categorized."}}
                     ]
                 }
             }
         ]
-        rest_chunks = split_text("Descripción Rest:\n" + description_rest_content)
-        adv_chunks = split_text("Descripción Revenue:\n" + description_adv_content)
+        rest_chunks = split_text("Rest Description:\n" + description_rest_content)
+        adv_chunks = split_text("Revenue Description:\n" + description_adv_content)
         rest_blocks = [
             {
                 "object": "block",
@@ -371,16 +371,16 @@ async def create_notion_page(issue: JiraIssue):
                 "Reporter": {
                     "rich_text": [{"type": "text", "text": {"content": reporter_name}}]
                 },
-                "Fecha de creación": {
+                "Creation Date": {
                     "date": {"start": created_date_iso}
                 },
                 "Tags": {
-                    "multi_select": [{"name": "trabajo"}]
+                    "multi_select": [{"name": "work"}]
                 },
-                "Asignación": {
+                "Assignment": {
                     "people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]
                 },
-                "Verificado": {
+                "Verified": {
                     "checkbox": False
                 }
             },
@@ -414,7 +414,7 @@ async def create_notion_page(issue: JiraIssue):
                             {
                                 "type": "text",
                                 "text": {
-                                    "content": "Accionables"
+                                    "content": "Action Items"
                                 },
                                 "annotations": {
                                     "bold": True,
@@ -459,20 +459,20 @@ async def create_notion_page(issue: JiraIssue):
         }
 
         response = await notion.pages.create(**payload)
-        logger.info(f"Página creada exitosamente en Notion para el issue: {issue.key}")
+        logger.info(f"Page successfully created in Notion for issue: {issue.key}")
         return response
     except Exception as e:
-        logger.error(f"Error al crear la página en Notion para el issue {issue.key}: {e}")
+        logger.error(f"Error creating page in Notion for issue {issue.key}: {e}")
         raise
 
 
 async def update_notion_page(page_id: str, issue: JiraIssue):
     """
-    Actualiza la página existente en Notion con la información actual del issue.
+    Update the existing Notion page with the current issue information.
     """
     try:
         issue_key = getattr(issue, "key", "UNKNOWN")
-        logger.info(f"Actualizando página en Notion para el issue: {issue_key}")
+        logger.info(f"Updating Notion page for issue: {issue_key}")
 
         summary = getattr(issue, "summary", "")
         description_content = parse_jira_description(getattr(issue, "description", "")) or ""
@@ -490,56 +490,56 @@ async def update_notion_page(page_id: str, issue: JiraIssue):
         }
 
         response = await notion.pages.update(page_id=page_id, **payload)
-        logger.info(f"Página actualizada exitosamente en Notion para el issue: {issue_key}")
+        logger.info(f"Page successfully updated in Notion for issue: {issue_key}")
         return response
 
     except Exception as e:
         issue_key = getattr(issue, "key", "UNKNOWN")
-        logger.error(f"Error al actualizar la página en Notion para el issue {issue_key}: {e}")
+        logger.error(f"Error updating the page in Notion for issue {issue_key}: {e}")
         raise
 
 async def create_or_update_notion_page(issue: JiraIssue):
     """
-    Función que primero busca si ya existe una página en Notion para el issue.
-    Si existe, se actualiza; de lo contrario, se crea una nueva.
+    Function that first checks if a Notion page already exists for the issue.
+    If it exists, it is updated; otherwise, a new one is created.
     """
     try:
         existing_page = await find_notion_page_by_ticket(issue.key)
         if existing_page:
             page_id = existing_page.get("id")
-            logger.info(f"Página ya existe para el issue {issue.key}, se procederá a actualizarla.")
+            logger.info(f"Page already exists for issue {issue.key}, proceeding to update.")
             return await update_notion_page(page_id, issue)
         else:
-            logger.info(f"No se encontró página existente para el issue {issue.key}, se creará una nueva.")
+            logger.info(f"No existing page found for issue {issue.key}, creating a new one.")
             return await create_notion_page(issue)
     except Exception as e:
-        logger.error(f"Error en create_or_update_notion_page para el issue {issue.key}: {e}")
+        logger.error(f"Error in create_or_update_notion_page for issue {issue.key}: {e}")
         raise
 
-async def set_notion_verificado(page: dict, verificado) -> dict:
+async def set_notion_verified(page: dict, verified) -> dict:
     """
-    Actualiza el campo tipo checkbox 'Verificado' de la página en Notion.
-    El valor puede ser booleano o un string convertible (como "True", "Inicial", etc.).
+    Update the checkbox field 'Verified' of the page in Notion.
+    The value can be a boolean or a convertible string (such as "True", "Initial", etc.).
     """
     try:
-        if isinstance(verificado, str):
-            verificado_bool = verificado.strip().lower() == "true"
+        if isinstance(verified, str):
+            verified_bool = verified.strip().lower() == "true"
         else:
-            verificado_bool = bool(verificado)
+            verified_bool = bool(verified)
 
         page_id = page["id"]
         payload = {
             "properties": {
-                "Verificado": {
-                    "checkbox": verificado_bool
+                "Verified": {
+                    "checkbox": verified_bool
                 }
             }
         }
         response = await notion.pages.update(page_id=page_id, **payload)
-        logger.info(f"Campo 'Verificado' actualizado a {verificado_bool} en página {page_id}")
+        logger.info(f"Field 'Verified' updated to {verified_bool} on page {page_id}")
         return response
     except Exception as e:
-        logger.error(f"Error al actualizar campo 'Verificado' en Notion para la página {page.get('id', 'desconocida')}: {e}")
+        logger.error(f"Error updating 'Verified' field in Notion for page {page.get('id', 'unknown')}: {e}")
         raise
 
 
