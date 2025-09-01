@@ -23,6 +23,17 @@ in a Notion database, eliminating the need for manual synchronization.
 -   📑 **Structured Logging**: rotating logs stored in file and console
     for monitoring and debugging.
 
+### 🗂️ Multiple Project Synchronization
+
+-   Set the `PROJECTS` environment variable to a JSON array where each
+    entry contains the Jira key, a project-specific JQL filter, and
+    optionally a Notion database ID.
+-   The `get_new_issues` and `get_updated_issues` functions combine the
+    time window with the project's filter to build the final JQL query.
+-   The entry point iterates over this list and synchronizes each
+    project independently, tracking the last processed issue for each
+    one.
+
 ------------------------------------------------------------------------
 
 ## 🏗️ System Architecture
@@ -32,7 +43,7 @@ in a Notion database, eliminating the need for manual synchronization.
 -   **Issue Processor**: core synchronization logic between Jira and
     Notion.\
 -   **Jira Client**: integration with Jira REST API (issues &
-    changelogs).\
+    changelogs) using the `/rest/api/3/search/jql` endpoint.\
 -   **Notion Client**: integration with Notion API for page management.\
 -   **State Manager**: persistence of the last processed issue
     (TinyDB).\
@@ -75,17 +86,29 @@ environment):
   `JIRA_API_TOKEN`       Jira API authentication token    `ATATT3xFfGF0...`
 
   `JIRA_DOMAIN`          Jira instance domain             `example.atlassian.net`
-
-  `JIRA_PROJECT_KEY`     Jira project identifier          `PROJ`
-
   `NOTION_API_KEY`       Notion integration token         `secret_xxx`
 
-  `NOTION_DATABASE_ID`   Target Notion database ID        `a1841d5b...`
+  `NOTION_DATABASE_ID`   Default Notion database ID       `abcd1234...`
 
   `CHECK_INTERVAL`       Sync interval in seconds         `10`
 
   `LOG_FILE`             Log file path                    `app.log`
+ 
+  `PROJECTS`             JSON list of project configs     `[{"key":"PROJ","jql":"project = PROJ"}]`
   ----------------------------------------------------------------------------------
+
+`PROJECTS` holds project-specific settings (`key` and `jql`) in JSON
+format. Each entry may optionally include `database_id`; if omitted, the
+`NOTION_DATABASE_ID` environment variable is used for all projects.
+
+```bash
+PROJECTS='[
+  {"key": "PROJ", "jql": "project = PROJ"},
+  {"key": "ANOTHER", "database_id": "abcd1234...", "jql": "project = ANOTHER"}
+]'
+```
+The `/sync-user-issues` endpoint processes every entry in this list and
+returns an error if none are configured.
 
 ### Field mapping
 
@@ -146,7 +169,7 @@ docker run -d \
   `POST`   `/check-new-issues`       Process newly created issues
 
   `POST`   `/sync-user-issues`       Full synchronization of all user-assigned
-                                     issues
+                                     issues across configured projects
   -----------------------------------------------------------------------------
 
 ------------------------------------------------------------------------

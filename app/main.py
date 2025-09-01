@@ -43,16 +43,22 @@ async def check_updated_issues() -> JSONResponse:
     the 'create_or_update_notion_page' logic.
     """
     try:
-        last_key = state.get_last_key()
-        logger.info(f"Last processed issue: {last_key}")
+        results: dict[str, Any] = {}
+        for project in settings.projects:
+            last_key = state.get_last_key(project.key)
+            logger.info(f"Last processed issue for {project.key}: {last_key}")
 
-        result = await process_updated_issues(last_key)
+            result = await process_updated_issues(project, last_key)
 
-        if "issue_key" in result:
-            state.update_last_key(result["issue_key"])
-            logger.info(f"New last processed issue: {result['issue_key']}")
+            if "last_issue" in result:
+                state.update_last_key(project.key, result["last_issue"])
+                logger.info(
+                    f"New last processed issue for {project.key}: {result['last_issue']}"
+                )
 
-        return JSONResponse(content=result)
+            results[project.key] = result
+
+        return JSONResponse(content=results)
 
     except Exception as e:
         logger.error(f"Error in /check-updated-issues: {e}", exc_info=True)
@@ -69,16 +75,22 @@ async def check_new_issues() -> JSONResponse:
     avoids creating duplicate pages in Notion.
     """
     try:
-        last_key = state.get_last_key()
-        logger.info(f"Last processed issue: {last_key}")
+        results: dict[str, Any] = {}
+        for project in settings.projects:
+            last_key = state.get_last_key(project.key)
+            logger.info(f"Last processed issue for {project.key}: {last_key}")
 
-        result = await process_new_issues(last_key)
+            result = await process_new_issues(project, last_key)
 
-        if "issue_key" in result:
-            state.update_last_key(result["issue_key"])
-            logger.info(f"New last processed issue: {result['issue_key']}")
+            if "issue_key" in result:
+                state.update_last_key(project.key, result["issue_key"])
+                logger.info(
+                    f"New last processed issue for {project.key}: {result['issue_key']}"
+                )
 
-        return JSONResponse(content=result)
+            results[project.key] = result
+
+        return JSONResponse(content=results)
 
     except Exception as e:
         logger.error(f"Error in /check-new-issues: {e}", exc_info=True)
@@ -98,15 +110,19 @@ async def service_status() -> Dict[str, Any]:
         from .jira_client import check_jira_connection
         from .notion_client import check_notion_connection
 
-        next_run = None
+        next_run = {}
         if scheduler and scheduler.get_jobs():
-            next_run = scheduler.get_jobs()[0].next_run_time.isoformat()
+            for job in scheduler.get_jobs():
+                next_run[job.id] = job.next_run_time.isoformat()
+
+        last_keys = {p.key: state.get_last_key(p.key) for p in settings.projects}
+        notion_db = settings.projects[0].database_id if settings.projects else None
 
         return {
             "status": "running",
-            "last_processed_issue": state.get_last_key(),
+            "last_processed_issue": last_keys,
             "jira_connected": await check_jira_connection(),
-            "notion_connected": await check_notion_connection(),
+            "notion_connected": await check_notion_connection(notion_db),
             "next_run": next_run,
         }
     except Exception as e:
@@ -123,20 +139,24 @@ async def startup_event():
 
     scheduler = AsyncIOScheduler()
 
-    scheduler.add_job(
-        periodic_task,
-        trigger="interval",
-        seconds=settings.check_interval,
-        args=[state.get_last_key()],
-        id="periodic_task",
-        max_instances=1,
-        replace_existing=True,
-    )
+    for project in settings.projects:
+        scheduler.add_job(
+            periodic_task,
+            trigger="interval",
+            seconds=settings.check_interval,
+            args=[project, state.get_last_key(project.key)],
+            id=f"periodic_task_{project.key}",
+            max_instances=1,
+            replace_existing=True,
+        )
     scheduler.start()
 
     logger.info("Service started successfully")
     logger.info(f"Check interval: {settings.check_interval} seconds")
-    logger.info(f"Last processed issue: {state.get_last_key()}")
+    for project in settings.projects:
+        logger.info(
+            f"Last processed issue for {project.key}: {state.get_last_key(project.key)}"
+        )
 
 
 @app.on_event("shutdown")
@@ -153,9 +173,16 @@ from .issue_processor import sync_all_user_issues
 async def sync_user_issues():
     """
     Synchronize all tickets assigned to the configured Jira user
-    with the Notion database:
+    across all configured projects. For each project:
     - Create new pages if they do not exist.
     - Update status to 'Initial' if they already exist.
     """
-    return await sync_all_user_issues()
+    if not settings.projects:
+        raise HTTPException(status_code=400, detail="No projects configured")
+
+    results: dict[str, Any] = {}
+    for project in settings.projects:
+        results[project.key] = await sync_all_user_issues(project)
+
+    return JSONResponse(content=results)
 

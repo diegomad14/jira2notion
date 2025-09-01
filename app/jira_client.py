@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 import yaml
@@ -12,7 +12,6 @@ from .models import JiraIssue
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
-JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
 
 # Load Jira field to Notion property mapping
 FIELD_MAP_PATH = Path(__file__).with_name("field_map.yaml")
@@ -35,41 +34,71 @@ async def check_jira_connection() -> bool:
         return False
 
 
-async def get_new_issues() -> list[JiraIssue]:
-    """Fetch new tickets created in the last 3 minutes."""
-    jql = f'project = {JIRA_PROJECT_KEY} AND created >= "-3m" ORDER BY created DESC'
+def _compose_jql(project_key: str, base_jql: str, time_filter: str, default_order: str) -> str:
+    """Build final JQL ensuring time filters precede any ORDER BY clause."""
+    parts = [f"project = {project_key}"]
+    order_clause = default_order
+
+    if base_jql:
+        lower = base_jql.lower()
+        if " order by " in lower:
+            idx = lower.rfind(" order by ")
+            parts.append(base_jql[:idx].strip())
+            order_clause = base_jql[idx + len(" order by "):].strip()
+        else:
+            parts.append(base_jql)
+
+    parts.append(time_filter)
+    return " AND ".join(parts) + f" ORDER BY {order_clause}"
+
+
+async def get_new_issues(project_key: str, base_jql: str) -> list[JiraIssue]:
+    """Fetch new tickets for the given project created in the last 3 minutes."""
+    jql = _compose_jql(
+        project_key,
+        base_jql,
+        'created >= -3m',
+        "created DESC",
+    )
     return await _fetch_issues(jql)
 
 
-async def get_updated_issues() -> list[JiraIssue]:
-    """Fetch tickets updated in the last 3 minutes (limited to the last 5 days)."""
-    jql = (
-        f'project = {JIRA_PROJECT_KEY} AND updated >= "-3m" AND created >= "-5d" '
-        'AND status IN ("Impact Estimated","QUARANTINE","Resolution In Progress","Routing","Waiting For Customer") '
-        'ORDER BY updated DESC'
+async def get_updated_issues(project_key: str, base_jql: str) -> list[JiraIssue]:
+    """Fetch tickets for the given project updated in the last 3 minutes."""
+    jql = _compose_jql(
+        project_key,
+        base_jql,
+        'updated >= -3m AND created >= -5d',
+        "updated DESC",
     )
     return await _fetch_issues(jql)
 
 
 async def _fetch_issues(jql: str) -> list[JiraIssue]:
+    """Call Jira's search endpoint using the new /search/jql API."""
     url = f"{JIRA_DOMAIN}/rest/api/3/search/jql"
     auth = (JIRA_EMAIL, JIRA_API_TOKEN)
 
     issues_out: list[JiraIssue] = []
-    next_page_token = None
+    next_page: Optional[str] = None
+    max_results = 100
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             while True:
-                body = {"jql": jql, "fields": FIELDS_NEEDED}
-                if next_page_token:
-                    body["nextPageToken"] = next_page_token
+                payload = {
+                    "jql": jql,
+                    "fields": FIELDS_NEEDED,
+                    "maxResults": max_results,
+                }
+                if next_page:
+                    payload["nextPageToken"] = next_page
 
                 resp = await client.post(
                     url,
-                    json=body,
+                    json=payload,
                     auth=auth,
-                    headers={"Accept": "application/json", "Content-Type": "application/json"},
+                    headers={"Accept": "application/json"},
                 )
                 resp.raise_for_status()
                 data = resp.json()
@@ -93,12 +122,12 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
                     except ValidationError as err:
                         print(f"Skipping invalid issue {issue_data.get('key')}: {err}")
 
-                next_page_token = data.get("nextPageToken")
-                if not next_page_token:
+                next_page = data.get("nextPageToken")
+                if not next_page or data.get("isLast"):
                     break
 
         print(f"Issues returned by Jira: {issues_out}")
     except Exception as e:
-        print(f"Error querying Jira (search/jql): {e}")
+        print(f"Error querying Jira (search): {e}")
 
     return issues_out
