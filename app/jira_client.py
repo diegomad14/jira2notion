@@ -75,6 +75,7 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
                         description_rest=str(f.get("customfield_12286") or ""),
                         status=(f.get("status") or {}).get("name", "") or "",
                         displayName=(assignee or {}).get("displayName"),
+                        emailAddress=(assignee or {}).get("emailAddress"),
                         reporter=reporter,
                         created=f.get("created"),
                         description_adv=f.get("description"),
