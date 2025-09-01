@@ -16,4 +16,3 @@ services:
       - JIRA_PROJECT_KEY=${JIRA_PROJECT_KEY}    
       - NOTION_API_KEY=${NOTION_API_KEY}
       - NOTION_DATABASE_ID=${NOTION_DATABASE_ID}
-      - JIRA_URL=${JIRA_URL}                    
