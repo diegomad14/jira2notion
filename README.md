@@ -43,7 +43,7 @@ in a Notion database, eliminating the need for manual synchronization.
 -   **Issue Processor**: core synchronization logic between Jira and
     Notion.\
 -   **Jira Client**: integration with Jira REST API (issues &
-    changelogs).\
+    changelogs) using the `/rest/api/3/search/jql` endpoint.\
 -   **Notion Client**: integration with Notion API for page management.\
 -   **State Manager**: persistence of the last processed issue
     (TinyDB).\
