@@ -1,11 +1,23 @@
 import os
+from pathlib import Path
+
 import httpx
+import yaml
+
 from .models import JiraIssue
 
 JIRA_EMAIL = os.getenv("JIRA_EMAIL")
 JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
+
+# Load Jira field to Notion property mapping
+FIELD_MAP_PATH = Path(__file__).with_name("field_map.yaml")
+with FIELD_MAP_PATH.open("r", encoding="utf-8") as f:
+    FIELD_MAP: dict[str, str] = yaml.safe_load(f) or {}
+
+# Jira "key" is always returned and should not be requested explicitly
+FIELDS_NEEDED = [k for k in FIELD_MAP.keys() if k != "key"]
 
 async def check_jira_connection() -> bool:
     """Verify the connection with Jira."""
@@ -39,11 +51,6 @@ async def get_updated_issues() -> list[JiraIssue]:
 async def _fetch_issues(jql: str) -> list[JiraIssue]:
     url = f"{JIRA_DOMAIN}/rest/api/3/search/jql"
     auth = (JIRA_EMAIL, JIRA_API_TOKEN)
-
-    FIELDS_NEEDED = [
-        "summary", "status", "assignee", "reporter", "created",
-        "description", "customfield_12286",
-    ]
 
     issues_out: list[JiraIssue] = []
     next_page_token = None

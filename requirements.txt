@@ -8,3 +8,4 @@ requests==2.32.3
 pytz==2025.1
 tinydb==4.8.2
 apscheduler==3.11.0
+PyYAML==6.0.1

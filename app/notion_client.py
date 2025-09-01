@@ -1,15 +1,24 @@
 import os
 import logging
-from notion_client import AsyncClient
-from .models import JiraIssue
+from pathlib import Path
 from datetime import datetime, timezone, timedelta
+
 import pytz
+import yaml
+from notion_client import AsyncClient
+
+from .models import JiraIssue
 
 logger = logging.getLogger(__name__)
 
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
 JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
+
+# Load Jira field to Notion property mapping
+FIELD_MAP_PATH = Path(__file__).with_name("field_map.yaml")
+with FIELD_MAP_PATH.open("r", encoding="utf-8") as f:
+    FIELD_MAP: dict[str, str] = yaml.safe_load(f) or {}
 
 notion = AsyncClient(auth=NOTION_API_KEY)
 
@@ -90,7 +99,6 @@ async def create_notion_page(issue: JiraIssue):
     """Create a new page in Notion using the issue information."""
     try:
         logger.info(f"Creating Notion page for issue: {issue.key}")
-        reporter_name = issue.reporter.get("displayName", "Unknown") if issue.reporter else "Unknown"
         key_content = issue.key if issue.key else ""
         description_rest_content = parse_jira_description(issue.description_rest) if issue.description_rest else ""
         description_adv_content = parse_jira_description(issue.description_adv) if issue.description_adv else ""
@@ -356,32 +364,51 @@ async def create_notion_page(issue: JiraIssue):
             for chunk in adv_chunks
         ]
 
+        # Build Notion properties dynamically from field mapping
+        properties: dict[str, dict] = {}
+        for jira_field, notion_prop in FIELD_MAP.items():
+            value = getattr(issue, jira_field, None)
+            if jira_field == "summary":
+                properties[notion_prop] = {
+                    "title": [{"type": "text", "text": {"content": value or ""}}]
+                }
+            elif jira_field == "key":
+                properties[notion_prop] = {
+                    "rich_text": [{"type": "text", "text": {"content": value or ""}}]
+                }
+            elif jira_field == "created":
+                properties[notion_prop] = {"date": {"start": created_date_iso}}
+            elif jira_field in ("reporter", "assignee"):
+                name = value.get("displayName", "Unknown") if value else "Unknown"
+                properties[notion_prop] = {
+                    "rich_text": [{"type": "text", "text": {"content": name}}]
+                }
+            elif jira_field in ("description", "customfield_12286"):
+                parsed = parse_jira_description(value) if value else ""
+                properties[notion_prop] = {
+                    "rich_text": [{"type": "text", "text": {"content": parsed}}]
+                }
+            else:
+                properties[notion_prop] = {
+                    "rich_text": [{"type": "text", "text": {"content": str(value) if value is not None else ""}}]
+                }
+
+        # Add static properties
+        properties.update({
+            "Tags": {
+                "multi_select": [{"name": "trabajo"}]
+            },
+            "Asignación": {
+                "people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]
+            },
+            "Verificado": {
+                "checkbox": False
+            }
+        })
+
         payload = {
             "parent": {"database_id": NOTION_DATABASE_ID},
-            "properties": {
-                "Name": {
-                    "title": [{"type": "text", "text": {"content": issue.summary}}]
-                },
-                "Jira Issue Key": {
-                    "rich_text": [{"type": "text", "text": {"content": issue.key}}]
-                },
-                "Reporter": {
-                    "rich_text": [{"type": "text", "text": {"content": reporter_name}}]
-                },
-                "Fecha de creación": {
-                    "date": {"start": created_date_iso}
-                },
-                "Tags": {
-                    # Notion database uses the Spanish tag name 'trabajo'
-                    "multi_select": [{"name": "trabajo"}]
-                },
-                "Asignación": {
-                    "people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]
-                },
-                "Verificado": {
-                    "checkbox": False
-                }
-            },
+            "properties": properties,
             "children": [
                 {
                     "object": "block",
@@ -470,20 +497,48 @@ async def update_notion_page(page_id: str, issue: JiraIssue):
         issue_key = getattr(issue, "key", "UNKNOWN")
         logger.info(f"Updating Notion page for issue: {issue_key}")
 
-        summary = getattr(issue, "summary", "")
-        description_content = parse_jira_description(getattr(issue, "description", "")) or ""
-        customfield_content = getattr(issue, "customfield_12286", "") or ""
+        if "T" in issue.created:
+            created_date = datetime.strptime(issue.created, "%Y-%m-%dT%H:%M:%S.%f%z")
+        else:
+            created_date = datetime.strptime(issue.created, "%Y-%m-%d")
+        colombia_tz = timezone(timedelta(hours=-5))
+        created_date = created_date.replace(tzinfo=colombia_tz)
+        created_date_iso = created_date.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        payload = {
-            "properties": {
-                "Name": {
-                    "title": [{"type": "text", "text": {"content": summary}}]
-                },
-                "Jira Issue Key": {
-                    "rich_text": [{"type": "text", "text": {"content": issue_key}}]
+        properties: dict[str, dict] = {}
+        for jira_field, notion_prop in FIELD_MAP.items():
+            value = getattr(issue, jira_field, None)
+            if jira_field == "summary":
+                properties[notion_prop] = {
+                    "title": [{"type": "text", "text": {"content": value or ""}}]
                 }
-            }
-        }
+            elif jira_field == "key":
+                properties[notion_prop] = {
+                    "rich_text": [{"type": "text", "text": {"content": value or ""}}]
+                }
+            elif jira_field == "created":
+                properties[notion_prop] = {"date": {"start": created_date_iso}}
+            elif jira_field in ("reporter", "assignee"):
+                name = value.get("displayName", "Unknown") if value else "Unknown"
+                properties[notion_prop] = {
+                    "rich_text": [{"type": "text", "text": {"content": name}}]
+                }
+            elif jira_field in ("description", "customfield_12286"):
+                parsed = parse_jira_description(value) if value else ""
+                properties[notion_prop] = {
+                    "rich_text": [{"type": "text", "text": {"content": parsed}}]
+                }
+            else:
+                properties[notion_prop] = {
+                    "rich_text": [{"type": "text", "text": {"content": str(value) if value is not None else ""}}]
+                }
+
+        properties.update({
+            "Tags": {"multi_select": [{"name": "trabajo"}]},
+            "Asignación": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]}
+        })
+
+        payload = {"properties": properties}
 
         response = await notion.pages.update(page_id=page_id, **payload)
         logger.info(f"Page successfully updated in Notion for issue: {issue_key}")
