@@ -8,7 +8,7 @@ JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
 
 async def check_jira_connection() -> bool:
-    """Verifica la conexión con Jira."""
+    """Verify the connection with Jira."""
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.get(
@@ -21,17 +21,13 @@ async def check_jira_connection() -> bool:
 
 
 async def get_new_issues() -> list[JiraIssue]:
-    """
-    Obtiene tickets nuevos creados en los últimos 3 minutos.
-    """
+    """Fetch new tickets created in the last 3 minutes."""
     jql = f'project = {JIRA_PROJECT_KEY} AND created >= "-3m" ORDER BY created DESC'
     return await _fetch_issues(jql)
 
 
 async def get_updated_issues() -> list[JiraIssue]:
-    """
-    Obtiene tickets actualizados en los últimos 3 minutos (limitado a últimos 5 días).
-    """
+    """Fetch tickets updated in the last 3 minutes (limited to the last 5 days)."""
     jql = (
         f'project = {JIRA_PROJECT_KEY} AND updated >= "-3m" AND created >= "-5d" '
         'AND status IN ("Impact Estimated","QUARANTINE","Resolution In Progress","Routing","Waiting For Customer") '
@@ -88,8 +84,8 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
                 if not next_page_token:
                     break
 
-        print(f"Issues devueltos por Jira: {issues_out}")
+        print(f"Issues returned by Jira: {issues_out}")
     except Exception as e:
-        print(f"Error al consultar Jira (search/jql): {e}")
+        print(f"Error querying Jira (search/jql): {e}")
 
     return issues_out
