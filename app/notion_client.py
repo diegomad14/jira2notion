@@ -90,14 +90,67 @@ def parse_jira_description(description):
         return description
 
 
+async def build_properties(
+    mapping: dict[str, str], issue: JiraIssue, existing_props: Optional[set[str]] = None
+) -> dict[str, dict]:
+    """Build a Notion properties payload from a Jira issue using the field mapping."""
+    if existing_props is None:
+        existing_props = await get_database_properties()
+
+    # Parse creation date once for reuse
+    if "T" in issue.created:
+        created_date = datetime.strptime(issue.created, "%Y-%m-%dT%H:%M:%S.%f%z")
+    else:
+        created_date = datetime.strptime(issue.created, "%Y-%m-%d")
+    colombia_tz = timezone(timedelta(hours=-5))
+    created_date = created_date.replace(tzinfo=colombia_tz)
+    created_date_iso = created_date.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    properties: dict[str, dict] = {}
+    for jira_field, notion_prop in mapping.items():
+        if notion_prop not in existing_props:
+            logger.warning(
+                f"Skipping unknown Notion property '{notion_prop}' while building properties"
+            )
+            continue
+        value = getattr(issue, jira_field, None)
+        if jira_field == "summary":
+            properties[notion_prop] = {
+                "title": [{"type": "text", "text": {"content": value or ""}}]
+            }
+        elif jira_field == "key":
+            properties[notion_prop] = {
+                "rich_text": [{"type": "text", "text": {"content": value or ""}}]
+            }
+        elif jira_field == "created":
+            properties[notion_prop] = {"date": {"start": created_date_iso}}
+        elif jira_field in ("reporter", "assignee"):
+            name = value.get("displayName", "Unknown") if value else "Unknown"
+            properties[notion_prop] = {
+                "rich_text": [{"type": "text", "text": {"content": name}}]
+            }
+        elif jira_field in ("description", "customfield_12286"):
+            parsed = parse_jira_description(value) if value else ""
+            properties[notion_prop] = {
+                "rich_text": [{"type": "text", "text": {"content": parsed}}]
+            }
+        else:
+            properties[notion_prop] = {
+                "rich_text": [{"type": "text", "text": {"content": str(value) if value is not None else ""}}]
+            }
+
+    return properties
+
+
 async def find_notion_page_by_ticket(ticket_key: str) -> dict:
     """
-    Query Notion to find a page whose "Jira Issue Key" field matches the ticket_key.
+    Query Notion to find a page whose Jira key field matches the ticket_key.
     """
     try:
+        key_property = FIELD_MAP.get("key", "Jira Issue Key")
         query = {
             "filter": {
-                "property": "Jira Issue Key",
+                "property": key_property,
                 "rich_text": {
                     "equals": ticket_key
                 }
@@ -119,14 +172,6 @@ async def create_notion_page(issue: JiraIssue):
         key_content = issue.key if issue.key else ""
         description_rest_content = parse_jira_description(issue.description_rest) if issue.description_rest else ""
         description_adv_content = parse_jira_description(issue.description_adv) if issue.description_adv else ""
-        if "T" in issue.created:
-            created_date = datetime.strptime(issue.created, "%Y-%m-%dT%H:%M:%S.%f%z")
-        else:
-            created_date = datetime.strptime(issue.created, "%Y-%m-%d")
-        colombia_tz = timezone(timedelta(hours=-5))
-        created_date = created_date.replace(tzinfo=colombia_tz)
-        created_date_utc = created_date.astimezone(timezone.utc)
-        created_date_iso = created_date_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         markdown_content = [
             {
                 "object": "block",
@@ -382,40 +427,7 @@ async def create_notion_page(issue: JiraIssue):
         ]
 
         existing_props = await get_database_properties()
-
-        # Build Notion properties dynamically from field mapping
-        properties: dict[str, dict] = {}
-        for jira_field, notion_prop in FIELD_MAP.items():
-            if notion_prop not in existing_props:
-                logger.warning(
-                    f"Skipping unknown Notion property '{notion_prop}' while creating page"
-                )
-                continue
-            value = getattr(issue, jira_field, None)
-            if jira_field == "summary":
-                properties[notion_prop] = {
-                    "title": [{"type": "text", "text": {"content": value or ""}}]
-                }
-            elif jira_field == "key":
-                properties[notion_prop] = {
-                    "rich_text": [{"type": "text", "text": {"content": value or ""}}]
-                }
-            elif jira_field == "created":
-                properties[notion_prop] = {"date": {"start": created_date_iso}}
-            elif jira_field in ("reporter", "assignee"):
-                name = value.get("displayName", "Unknown") if value else "Unknown"
-                properties[notion_prop] = {
-                    "rich_text": [{"type": "text", "text": {"content": name}}]
-                }
-            elif jira_field in ("description", "customfield_12286"):
-                parsed = parse_jira_description(value) if value else ""
-                properties[notion_prop] = {
-                    "rich_text": [{"type": "text", "text": {"content": parsed}}]
-                }
-            else:
-                properties[notion_prop] = {
-                    "rich_text": [{"type": "text", "text": {"content": str(value) if value is not None else ""}}]
-                }
+        properties = await build_properties(FIELD_MAP, issue, existing_props)
 
         # Add static properties if they exist in the database
         static_props = {
@@ -522,48 +534,11 @@ async def update_notion_page(page_id: str, issue: JiraIssue):
         issue_key = getattr(issue, "key", "UNKNOWN")
         logger.info(f"Updating Notion page for issue: {issue_key}")
 
-        if "T" in issue.created:
-            created_date = datetime.strptime(issue.created, "%Y-%m-%dT%H:%M:%S.%f%z")
-        else:
-            created_date = datetime.strptime(issue.created, "%Y-%m-%d")
-        colombia_tz = timezone(timedelta(hours=-5))
-        created_date = created_date.replace(tzinfo=colombia_tz)
-        created_date_iso = created_date.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
         existing_props = await get_database_properties()
 
-        properties: dict[str, dict] = {}
-        for jira_field, notion_prop in FIELD_MAP.items():
-            if notion_prop not in existing_props:
-                logger.warning(
-                    f"Skipping unknown Notion property '{notion_prop}' while updating page"
-                )
-                continue
-            value = getattr(issue, jira_field, None)
-            if jira_field == "summary":
-                properties[notion_prop] = {
-                    "title": [{"type": "text", "text": {"content": value or ""}}]
-                }
-            elif jira_field == "key":
-                properties[notion_prop] = {
-                    "rich_text": [{"type": "text", "text": {"content": value or ""}}]
-                }
-            elif jira_field == "created":
-                properties[notion_prop] = {"date": {"start": created_date_iso}}
-            elif jira_field in ("reporter", "assignee"):
-                name = value.get("displayName", "Unknown") if value else "Unknown"
-                properties[notion_prop] = {
-                    "rich_text": [{"type": "text", "text": {"content": name}}]
-                }
-            elif jira_field in ("description", "customfield_12286"):
-                parsed = parse_jira_description(value) if value else ""
-                properties[notion_prop] = {
-                    "rich_text": [{"type": "text", "text": {"content": parsed}}]
-                }
-            else:
-                properties[notion_prop] = {
-                    "rich_text": [{"type": "text", "text": {"content": str(value) if value is not None else ""}}]
-                }
+
+        properties = await build_properties(FIELD_MAP, issue, existing_props)
+
 
         static_props = {
             "Tags": {"multi_select": [{"name": "trabajo"}]},
