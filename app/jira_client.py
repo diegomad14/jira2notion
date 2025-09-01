@@ -42,9 +42,9 @@ def _compose_jql(project_key: str, base_jql: str, time_filter: str, default_orde
     if base_jql:
         lower = base_jql.lower()
         if " order by " in lower:
-            query, order = base_jql.rsplit(" order by ", 1)
-            parts.append(query.strip())
-            order_clause = order.strip()
+            idx = lower.rfind(" order by ")
+            parts.append(base_jql[:idx].strip())
+            order_clause = base_jql[idx + len(" order by "):].strip()
         else:
             parts.append(base_jql)
 
