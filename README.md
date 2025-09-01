@@ -26,8 +26,8 @@ in a Notion database, eliminating the need for manual synchronization.
 ### 🗂️ Multiple Project Synchronization
 
 -   Set the `PROJECTS` environment variable to a JSON array where each
-    entry contains the Jira key, Notion database ID, and a project-
-    specific JQL filter.
+    entry contains the Jira key, a project-specific JQL filter, and
+    optionally a Notion database ID.
 -   The `get_new_issues` and `get_updated_issues` functions combine the
     time window with the project's filter to build the final JQL query.
 -   The entry point iterates over this list and synchronizes each
@@ -92,15 +92,17 @@ environment):
 
   `LOG_FILE`             Log file path                    `app.log`
  
-  `PROJECTS`             JSON list of project configs     `[{"key":"PROJ","database_id":"abcd1234","jql":"project = PROJ"}]`
+  `PROJECTS`             JSON list of project configs     `[{"key":"PROJ","jql":"project = PROJ"}]`
   ----------------------------------------------------------------------------------
 
-`PROJECTS` holds project-specific settings (`key`, `database_id`, and
-`jql`) in JSON format:
+`PROJECTS` holds project-specific settings (`key` and `jql`) in JSON
+format. Each entry may optionally include `database_id`; if omitted, the
+`NOTION_DATABASE_ID` environment variable is used for all projects.
 
 ```bash
 PROJECTS='[
-  {"key": "PROJ", "database_id": "abcd1234...", "jql": "project = PROJ"}
+  {"key": "PROJ", "jql": "project = PROJ"},
+  {"key": "ANOTHER", "database_id": "abcd1234...", "jql": "project = ANOTHER"}
 ]'
 ```
 The `/sync-user-issues` endpoint processes every entry in this list and

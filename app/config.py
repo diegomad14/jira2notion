@@ -1,12 +1,12 @@
 import json
 import os
-from typing import List
+from typing import List, Optional
 from pydantic import BaseSettings, BaseModel, Field, validator
 
 
 class ProjectConfig(BaseModel):
     key: str
-    database_id: str
+    database_id: Optional[str] = None
     jql: str
 
 class Settings(BaseSettings):
