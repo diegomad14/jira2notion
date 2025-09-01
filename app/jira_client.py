@@ -1,4 +1,3 @@
-# jira_client.py
 import os
 import httpx
 from .models import JiraIssue
@@ -8,15 +7,14 @@ JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
 JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY")
 
-# Campos que realmente usas en tu modelo / lógica
 FIELDS_NEEDED = [
     "summary",
     "status",
     "assignee",
     "reporter",
     "created",
-    "description",        # descripción en ADF (avanzada)
-    "customfield_12286",  # tu campo Rest (ajústalo si cambia)
+    "description",
+    "customfield_12286",
 ]
 
 async def check_jira_connection() -> bool:
@@ -68,11 +66,11 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
         async with httpx.AsyncClient(timeout=30.0) as client:
             while True:
                 body = {
-                    "jql": jql,                  # <- clave correcta (no "query")
+                    "jql": jql,
                     "fields": FIELDS_NEEDED,
                 }
                 if next_page_token:
-                    body["nextPageToken"] = next_page_token  # <- nueva paginación
+                    body["nextPageToken"] = next_page_token
 
                 resp = await client.post(url, json=body, auth=auth,
                                          headers={"Accept": "application/json",
@@ -96,7 +94,6 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
                         description_adv=f.get("description"),
                     ))
 
-                # Nueva forma de saber si hay más páginas
                 next_page_token = data.get("nextPageToken")
                 if not next_page_token:
                     break

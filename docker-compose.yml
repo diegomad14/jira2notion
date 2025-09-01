@@ -7,7 +7,6 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
-    # Opcional: si tienes .env local, puedes incluirlo; no es obligatorio
     env_file:
       - .env
     environment:
