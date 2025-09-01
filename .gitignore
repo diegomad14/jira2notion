@@ -23,6 +23,7 @@ app.log
 
 # artefactos locales
 replacements.txt
+state.json
 jira2notion.git/
 __pycache__/
 .env
