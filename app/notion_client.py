@@ -132,11 +132,6 @@ async def build_properties(
             )
             continue
         value = issue.get(jira_field)
-        if value is None:
-            if jira_field == "customfield_12286":
-                value = issue.get("description_rest")
-            elif jira_field == "description":
-                value = issue.get("description_adv")
         if jira_field == "summary":
             properties[notion_prop] = {
                 "title": [{"type": "text", "text": {"content": value or ""}}]
@@ -193,8 +188,16 @@ async def create_notion_page(issue: JiraIssue):
     try:
         logger.info(f"Creating Notion page for issue: {issue.get('key')}")
         key_content = issue.get("key") or ""
-        description_rest_content = parse_jira_description(issue.get("description_rest")) if issue.get("description_rest") else ""
-        description_adv_content = parse_jira_description(issue.get("description_adv")) if issue.get("description_adv") else ""
+        customfield_content = (
+            parse_jira_description(issue.get("customfield_12286"))
+            if issue.get("customfield_12286")
+            else ""
+        )
+        description_content = (
+            parse_jira_description(issue.get("description"))
+            if issue.get("description")
+            else ""
+        )
         markdown_content = [
             {
                 "object": "block",
@@ -425,8 +428,8 @@ async def create_notion_page(issue: JiraIssue):
                 }
             }
         ]
-        rest_chunks = split_text("Rest Description:\n" + description_rest_content)
-        adv_chunks = split_text("Revenue Description:\n" + description_adv_content)
+        rest_chunks = split_text("Rest Description:\n" + customfield_content)
+        adv_chunks = split_text("Revenue Description:\n" + description_content)
         rest_blocks = [
             {
                 "object": "block",
