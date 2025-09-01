@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any
 
 import httpx
 import yaml
@@ -73,20 +74,23 @@ async def _fetch_issues(jql: str) -> list[JiraIssue]:
 
                 for it in data.get("issues", []):
                     f = it.get("fields", {}) or {}
-                    assignee = f.get("assignee")
-                    reporter = f.get("reporter")
+                    assignee: dict[str, Any] | None = f.get("assignee")
+                    reporter: dict[str, Any] | None = f.get("reporter")
 
-                    issues_out.append(JiraIssue(
-                        key=it.get("key"),
-                        summary=f.get("summary", "") or "",
-                        description_rest=str(f.get("customfield_12286") or ""),
-                        status=(f.get("status") or {}).get("name", "") or "",
-                        displayName=(assignee or {}).get("displayName"),
-                        emailAddress=(assignee or {}).get("emailAddress"),
-                        reporter=reporter,
-                        created=f.get("created"),
-                        description_adv=f.get("description"),
-                    ))
+                    issue: JiraIssue = {
+                        "key": it.get("key"),
+                        "summary": f.get("summary", "") or "",
+                        "description_rest": str(f.get("customfield_12286") or ""),
+                        "status": (f.get("status") or {}).get("name", "") or "",
+                        "displayName": (assignee or {}).get("displayName"),
+                        "emailAddress": (assignee or {}).get("emailAddress"),
+                        "reporter": reporter or {},
+                        "assignee": assignee or {},
+                        "created": f.get("created"),
+                        "description_adv": f.get("description"),
+                    }
+
+                    issues_out.append(issue)
 
                 next_page_token = data.get("nextPageToken")
                 if not next_page_token:

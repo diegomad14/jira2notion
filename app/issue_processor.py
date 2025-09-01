@@ -21,7 +21,7 @@ async def process_updated_issues(last_key):
     last_processed_issue = None
 
     for issue in issues:
-        issue_key = issue.key
+        issue_key = issue.get("key")
         logger.info(f"Processing updated issue: {issue_key}")
         await create_or_update_notion_page(issue)
         last_processed_issue = issue_key
@@ -39,14 +39,14 @@ async def process_new_issues(last_processed_issue_key):
             
             if filtered_issues:
                 latest_issue = filtered_issues[0]
-                if latest_issue.key != last_processed_issue_key:
-                    logger.info(f"New issue detected: {latest_issue.key}")
-                    
+                if latest_issue.get("key") != last_processed_issue_key:
+                    logger.info(f"New issue detected: {latest_issue.get('key')}")
+
                     await create_or_update_notion_page(latest_issue)
-                    last_processed_issue_key = latest_issue.key
-                    
-                    logger.info(f"Notion page created or updated for issue: {latest_issue.key}")
-                    return {"message": "New issue processed", "issue_key": latest_issue.key}
+                    last_processed_issue_key = latest_issue.get("key")
+
+                    logger.info(f"Notion page created or updated for issue: {latest_issue.get('key')}")
+                    return {"message": "New issue processed", "issue_key": latest_issue.get("key")}
                 else:
                     logger.info(f"No new issues assigned to {settings.jira_assignee}")
                     return {"message": "No new issues"}
@@ -68,11 +68,11 @@ async def periodic_task(last_processed_issue_key, manual_run: bool = False):
 
         if filtered_issues:
             latest_issue = filtered_issues[0]
-            if latest_issue.key != last_processed_issue_key:
-                logger.info(f"New issue or update detected: {latest_issue.key}")
+            if latest_issue.get("key") != last_processed_issue_key:
+                logger.info(f"New issue or update detected: {latest_issue.get('key')}")
 
                 await create_or_update_notion_page(latest_issue)
-                last_processed_issue_key = latest_issue.key
+                last_processed_issue_key = latest_issue.get("key")
             else:
                 logger.info("No new issues or updates.")
         else:
@@ -104,7 +104,7 @@ async def sync_all_user_issues():
         processed_issues = []
 
         for issue in issues:
-            issue_key = issue.key
+            issue_key = issue.get("key")
             logger.info(f"Synchronizing issue: {issue_key}")
 
             existing_page = await find_notion_page_by_ticket(issue_key)
