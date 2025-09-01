@@ -22,6 +22,22 @@ with FIELD_MAP_PATH.open("r", encoding="utf-8") as f:
 
 notion = AsyncClient(auth=NOTION_API_KEY)
 
+# Cache for Notion database property names
+_NOTION_PROPERTIES: set[str] | None = None
+
+
+async def get_database_properties() -> set[str]:
+    """Return the set of property names defined in the target Notion database."""
+    global _NOTION_PROPERTIES
+    if _NOTION_PROPERTIES is None:
+        try:
+            response = await notion.databases.retrieve(NOTION_DATABASE_ID)
+            _NOTION_PROPERTIES = set(response.get("properties", {}).keys())
+        except Exception as e:
+            logger.error(f"Error retrieving Notion database properties: {e}")
+            _NOTION_PROPERTIES = set()
+    return _NOTION_PROPERTIES
+
 async def check_notion_connection() -> bool:
     """
     Verify the connection with the Notion API.
@@ -364,9 +380,16 @@ async def create_notion_page(issue: JiraIssue):
             for chunk in adv_chunks
         ]
 
+        existing_props = await get_database_properties()
+
         # Build Notion properties dynamically from field mapping
         properties: dict[str, dict] = {}
         for jira_field, notion_prop in FIELD_MAP.items():
+            if notion_prop not in existing_props:
+                logger.warning(
+                    f"Skipping unknown Notion property '{notion_prop}' while creating page"
+                )
+                continue
             value = getattr(issue, jira_field, None)
             if jira_field == "summary":
                 properties[notion_prop] = {
@@ -393,18 +416,19 @@ async def create_notion_page(issue: JiraIssue):
                     "rich_text": [{"type": "text", "text": {"content": str(value) if value is not None else ""}}]
                 }
 
-        # Add static properties
-        properties.update({
-            "Tags": {
-                "multi_select": [{"name": "trabajo"}]
-            },
-            "Asignación": {
-                "people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]
-            },
-            "Verificado": {
-                "checkbox": False
-            }
-        })
+        # Add static properties if they exist in the database
+        static_props = {
+            "Tags": {"multi_select": [{"name": "trabajo"}]},
+            "Asignación": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]},
+            "Verificado": {"checkbox": False},
+        }
+        for prop_name, prop_value in static_props.items():
+            if prop_name in existing_props:
+                properties[prop_name] = prop_value
+            else:
+                logger.warning(
+                    f"Skipping static Notion property '{prop_name}' while creating page"
+                )
 
         payload = {
             "parent": {"database_id": NOTION_DATABASE_ID},
@@ -505,8 +529,15 @@ async def update_notion_page(page_id: str, issue: JiraIssue):
         created_date = created_date.replace(tzinfo=colombia_tz)
         created_date_iso = created_date.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+        existing_props = await get_database_properties()
+
         properties: dict[str, dict] = {}
         for jira_field, notion_prop in FIELD_MAP.items():
+            if notion_prop not in existing_props:
+                logger.warning(
+                    f"Skipping unknown Notion property '{notion_prop}' while updating page"
+                )
+                continue
             value = getattr(issue, jira_field, None)
             if jira_field == "summary":
                 properties[notion_prop] = {
@@ -533,10 +564,17 @@ async def update_notion_page(page_id: str, issue: JiraIssue):
                     "rich_text": [{"type": "text", "text": {"content": str(value) if value is not None else ""}}]
                 }
 
-        properties.update({
+        static_props = {
             "Tags": {"multi_select": [{"name": "trabajo"}]},
-            "Asignación": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]}
-        })
+            "Asignación": {"people": [{"id": "564716e3-359a-48a0-b3ea-e54c74902573"}]},
+        }
+        for prop_name, prop_value in static_props.items():
+            if prop_name in existing_props:
+                properties[prop_name] = prop_value
+            else:
+                logger.warning(
+                    f"Skipping static Notion property '{prop_name}' while updating page"
+                )
 
         payload = {"properties": properties}
 
@@ -573,6 +611,11 @@ async def set_notion_verified(page: dict, verified) -> dict:
     The value can be a boolean or a convertible string (like "True", "Initial", etc.).
     """
     try:
+        existing_props = await get_database_properties()
+        if "Verificado" not in existing_props:
+            logger.warning("Property 'Verificado' not found in Notion database; skipping update")
+            return page
+
         if isinstance(verified, str):
             verified_bool = verified.strip().lower() == "true"
         else:

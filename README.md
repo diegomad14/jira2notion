@@ -92,7 +92,9 @@ environment):
 Jira and Notion field names are linked in `app/field_map.yaml`.
 Each entry defines a `jira_field: notion_property` pair used by the
 Jira client to request fields and by the Notion client to build page
-properties. Adjust this file to match your workspace.
+properties. Adjust this file to match your workspace. Any Notion
+properties that do not exist in the target database are ignored during
+page creation or updates to avoid API errors.
 
 ------------------------------------------------------------------------
 
