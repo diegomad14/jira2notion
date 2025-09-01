@@ -11,7 +11,7 @@ from .state_manager import StateManager
 
 app = FastAPI(
     title="Jira2Notion Sync API",
-    description="API para sincronización de tickets entre Jira y Notion",
+    description="API for synchronizing tickets between Jira and Notion",
     version="1.0.0"
 )
 
@@ -31,31 +31,31 @@ scheduler: AsyncIOScheduler = None
 
 @app.get("/")
 async def read_root() -> Dict[str, str]:
-    """Endpoint básico para verificar el estado del servicio"""
+    """Basic endpoint to check service status."""
     return {"message": "Jira2Notion integration is running!"}
 
 
 @app.post("/check-updated-issues")
 async def check_updated_issues() -> JSONResponse:
     """
-    Endpoint para verificar y procesar issues actualizados en Jira.
-    Se utiliza la función que ya realiza la verificación de duplicados mediante
-    la lógica de 'create_or_update_notion_page'.
+    Endpoint to verify and process updated issues in Jira.
+    Uses the function that already performs duplicate verification through
+    the 'create_or_update_notion_page' logic.
     """
     try:
         last_key = state.get_last_key()
-        logger.info(f"Último issue procesado: {last_key}")
+        logger.info(f"Last processed issue: {last_key}")
 
         result = await process_updated_issues(last_key)
 
         if "issue_key" in result:
             state.update_last_key(result["issue_key"])
-            logger.info(f"Nuevo último issue procesado: {result['issue_key']}")
+            logger.info(f"New last processed issue: {result['issue_key']}")
 
         return JSONResponse(content=result)
 
     except Exception as e:
-        logger.error(f"Error en /check-updated-issues: {e}", exc_info=True)
+        logger.error(f"Error in /check-updated-issues: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Internal server error: {str(e)}"
         )
@@ -64,24 +64,24 @@ async def check_updated_issues() -> JSONResponse:
 @app.post("/check-new-issues")
 async def check_new_issues() -> JSONResponse:
     """
-    Endpoint para verificar y procesar nuevos issues en Jira.
-    Se utiliza la función que, a través de 'create_or_update_notion_page',
-    evita crear páginas duplicadas en Notion.
+    Endpoint to verify and process new issues in Jira.
+    It uses the function that, through 'create_or_update_notion_page',
+    avoids creating duplicate pages in Notion.
     """
     try:
         last_key = state.get_last_key()
-        logger.info(f"Último issue procesado: {last_key}")
+        logger.info(f"Last processed issue: {last_key}")
 
         result = await process_new_issues(last_key)
 
         if "issue_key" in result:
             state.update_last_key(result["issue_key"])
-            logger.info(f"Nuevo último issue procesado: {result['issue_key']}")
+            logger.info(f"New last processed issue: {result['issue_key']}")
 
         return JSONResponse(content=result)
 
     except Exception as e:
-        logger.error(f"Error en /check-new-issues: {e}", exc_info=True)
+        logger.error(f"Error in /check-new-issues: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Internal server error: {str(e)}"
         )
@@ -90,9 +90,9 @@ async def check_new_issues() -> JSONResponse:
 @app.get("/status")
 async def service_status() -> Dict[str, Any]:
     """
-    Endpoint de estado del servicio.
-    Reporta la conexión con Jira y Notion, el último issue procesado y
-    el próximo tiempo de ejecución de la tarea periódica.
+    Service status endpoint.
+    Reports the connection with Jira and Notion, the last processed issue,
+    and the next scheduled time for the periodic task.
     """
     try:
         from .jira_client import check_jira_connection
@@ -110,7 +110,7 @@ async def service_status() -> Dict[str, Any]:
             "next_run": next_run,
         }
     except Exception as e:
-        logger.error(f"Error en /status: {e}", exc_info=True)
+        logger.error(f"Error in /status: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Error checking service status: {str(e)}"
         )
@@ -118,7 +118,7 @@ async def service_status() -> Dict[str, Any]:
 
 @app.on_event("startup")
 async def startup_event():
-    """Configuración inicial al iniciar la aplicación"""
+    """Initial configuration when starting the application"""
     global scheduler
 
     scheduler = AsyncIOScheduler()
@@ -134,28 +134,28 @@ async def startup_event():
     )
     scheduler.start()
 
-    logger.info("Servicio iniciado correctamente")
-    logger.info(f"Intervalo de verificación: {settings.check_interval} segundos")
-    logger.info(f"Último issue procesado: {state.get_last_key()}")
+    logger.info("Service started successfully")
+    logger.info(f"Check interval: {settings.check_interval} seconds")
+    logger.info(f"Last processed issue: {state.get_last_key()}")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Manejo del cierre de la aplicación"""
+    """Handle application shutdown"""
     global scheduler
     if scheduler:
         scheduler.shutdown()
-    logger.info("Servicio detenido correctamente")
+    logger.info("Service stopped successfully")
 
 from .issue_processor import sync_all_user_issues
 
 @app.post("/sync-user-issues")
 async def sync_user_issues():
     """
-    Sincroniza todos los tickets asignados al usuario configurado en Jira,
-    con la base de datos de Notion:
-    - Crea nuevas páginas si no existen.
-    - Actualiza estado a 'Inicial' si ya existen.
+    Synchronize all tickets assigned to the configured Jira user
+    with the Notion database:
+    - Create new pages if they do not exist.
+    - Update status to 'Initial' if they already exist.
     """
     return await sync_all_user_issues()
 

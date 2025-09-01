@@ -7,10 +7,10 @@ class StateManager:
         self.table = self.db.table('last_processed')
         
     def get_last_key(self) -> Optional[str]:
-        """Obtiene el último issue procesado"""
+        """Retrieve the last processed issue key."""
         doc = self.table.get(doc_id=1)
         return doc['value'] if doc else None
-        
+
     def update_last_key(self, key: str) -> None:
-        """Actualiza el último issue procesado"""
+        """Update the last processed issue key."""
         self.table.upsert({'value': key}, doc_ids=[1])
