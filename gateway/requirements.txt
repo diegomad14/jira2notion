@@ -1,0 +1,5 @@
+fastapi>=0.118
+uvicorn[standard]>=0.36
+aiokafka>=0.10
+prometheus-client>=0.20
+pydantic>=2.8
