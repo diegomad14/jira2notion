@@ -1,0 +1,17 @@
+services:
+  gateway:
+    build:
+      context: ..
+      dockerfile: gateway/Dockerfile
+    container_name: gateway
+    environment:
+      - DOCKER_NETWORK=${DOCKER_NETWORK:-aimnet}
+      - KAFKA_BROKER=${KAFKA_BROKER:-kafka:9092}
+      - GATEWAY_PORT=${GATEWAY_PORT:-8000}
+      - SERVICE_NAME=gateway
+      - TICKET_TOPIC=${TICKET_TOPIC:-ticket.created}
+    depends_on:
+      - kafka
+    networks: [${DOCKER_NETWORK:-aimnet}]
+    ports:
+      - "8000:8000"
